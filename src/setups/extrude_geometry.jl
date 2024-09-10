@@ -72,9 +72,11 @@ InitialCondition{Float64}(0.1, [0.44999999999999996 0.43096988312782164 … -0.2
 !!! warning "Experimental Implementation"
     This is an experimental feature and may change in any future releases.
 """
-function extrude_geometry(geometry; particle_spacing=-1, direction, n_extrude::Integer,
-                          velocity=zeros(length(direction)), tlsph=false,
-                          mass=nothing, density=nothing, pressure=0.0)
+function extrude_geometry(
+        geometry; particle_spacing = -1, direction, n_extrude::Integer,
+        velocity = zeros(length(direction)), tlsph = false,
+        mass = nothing, density = nothing, pressure = 0.0
+    )
     direction_ = normalize(direction)
     NDIMS = length(direction_)
 
@@ -91,11 +93,11 @@ function extrude_geometry(geometry; particle_spacing=-1, direction, n_extrude::I
 
     geometry = shift_plane_corners(geometry, direction_, particle_spacing, tlsph)
 
-    face_coords, particle_spacing_ = sample_plane(geometry, particle_spacing; tlsph=tlsph)
+    face_coords, particle_spacing_ = sample_plane(geometry, particle_spacing; tlsph = tlsph)
 
-    if !isapprox(particle_spacing, particle_spacing_, rtol=5e-2)
+    if !isapprox(particle_spacing, particle_spacing_, rtol = 5.0e-2)
         @info "The desired size is not a multiple of the particle spacing $particle_spacing." *
-              "\nNew particle spacing is set to $particle_spacing_."
+            "\nNew particle spacing is set to $particle_spacing_."
     end
 
     coords = (face_coords .+ i * particle_spacing_ * direction_ for i in 0:(n_extrude - 1))
@@ -107,8 +109,10 @@ function extrude_geometry(geometry; particle_spacing=-1, direction, n_extrude::I
         density = vcat(geometry.density, (geometry.density for i in 1:(n_extrude - 1))...)
     end
 
-    return InitialCondition(; coordinates, velocity, density, mass, pressure,
-                            particle_spacing=particle_spacing_)
+    return InitialCondition(;
+        coordinates, velocity, density, mass, pressure,
+        particle_spacing = particle_spacing_
+    )
 end
 
 # For corners/endpoints of a plane/line, sample the plane/line with particles.
@@ -132,8 +136,10 @@ function sample_plane(shape::InitialCondition, particle_spacing; tlsph)
         # Extruding a 2D shape results in a 3D shape
 
         # When `tlsph=true`, particles will be placed on the x-y plane
-        coords = vcat(shape.coordinates,
-                      fill(tlsph ? 0.0 : 0.5particle_spacing, size(shape.coordinates, 2))')
+        coords = vcat(
+            shape.coordinates,
+            fill(tlsph ? 0.0 : 0.5particle_spacing, size(shape.coordinates, 2))'
+        )
 
         # TODO: 2D shapes not only in x-y plane but in any user-defined plane
         return coords, particle_spacing
@@ -142,13 +148,13 @@ function sample_plane(shape::InitialCondition, particle_spacing; tlsph)
     return shape.coordinates, particle_spacing
 end
 
-function sample_plane(plane_points, particle_spacing; tlsph=nothing)
+function sample_plane(plane_points, particle_spacing; tlsph = nothing)
 
     # Convert to tuple
-    return sample_plane(tuple(plane_points...), particle_spacing; tlsph=nothing)
+    return sample_plane(tuple(plane_points...), particle_spacing; tlsph = nothing)
 end
 
-function sample_plane(plane_points::NTuple{2}, particle_spacing; tlsph=nothing)
+function sample_plane(plane_points::NTuple{2}, particle_spacing; tlsph = nothing)
     # Verify that points are in 2D space
     if any(length.(plane_points) .!= 2)
         throw(ArgumentError("all points must be 2D coordinates"))
@@ -156,13 +162,13 @@ function sample_plane(plane_points::NTuple{2}, particle_spacing; tlsph=nothing)
 
     n_points = ceil(Int, norm(plane_points[2] - plane_points[1]) / particle_spacing) + 1
 
-    coords = stack(range(plane_points[1], plane_points[2], length=n_points))
+    coords = stack(range(plane_points[1], plane_points[2], length = n_points))
     particle_spacing_new = norm(coords[:, 1] - coords[:, 2])
 
     return coords, particle_spacing_new
 end
 
-function sample_plane(plane_points::NTuple{3}, particle_spacing; tlsph=nothing)
+function sample_plane(plane_points::NTuple{3}, particle_spacing; tlsph = nothing)
     # Verify that points are in 3D space
     if any(length.(plane_points) .!= 3)
         throw(ArgumentError("all points must be 3D coordinates"))
@@ -191,22 +197,26 @@ function sample_plane(plane_points::NTuple{3}, particle_spacing; tlsph=nothing)
     for i in 0:num_points_edge1
         for j in 0:num_points_edge2
             point_on_plane = point1_ + (i / num_points_edge1) * edge1 +
-                             (j / num_points_edge2) * edge2
+                (j / num_points_edge2) * edge2
             coords[:, index] = point_on_plane
             index += 1
         end
     end
 
-    particle_spacing_new = min(norm(edge1 / num_points_edge1),
-                               norm(edge2 / num_points_edge2))
+    particle_spacing_new = min(
+        norm(edge1 / num_points_edge1),
+        norm(edge2 / num_points_edge2)
+    )
 
     return coords, particle_spacing_new
 end
 
 # Shift corners of the plane/line inwards by half a particle spacing with `tlsph=false`
 # because fluid particles need to be half a particle spacing away from the boundary of the shape.
-function shift_plane_corners(geometry::Union{AbstractMatrix, InitialCondition},
-                             direction, particle_spacing, tlsph)
+function shift_plane_corners(
+        geometry::Union{AbstractMatrix, InitialCondition},
+        direction, particle_spacing, tlsph
+    )
     return geometry
 end
 

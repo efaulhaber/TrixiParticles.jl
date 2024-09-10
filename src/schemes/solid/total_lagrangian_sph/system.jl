@@ -48,37 +48,43 @@ See [Total Lagrangian SPH](@ref tlsph) for more details on the method.
     ```
     where `beam` and `fixed_particles` are of type `InitialCondition`.
 """
-struct TotalLagrangianSPHSystem{BM, NDIMS, ELTYPE <: Real, IC, ARRAY1D, ARRAY2D, ARRAY3D,
-                                K, PF, ST} <: SolidSystem{NDIMS, IC}
-    initial_condition   :: IC
-    initial_coordinates :: ARRAY2D # Array{ELTYPE, 2}: [dimension, particle]
-    current_coordinates :: ARRAY2D # Array{ELTYPE, 2}: [dimension, particle]
-    mass                :: ARRAY1D # Array{ELTYPE, 1}: [particle]
-    correction_matrix   :: ARRAY3D # Array{ELTYPE, 3}: [i, j, particle]
-    pk1_corrected       :: ARRAY3D # Array{ELTYPE, 3}: [i, j, particle]
-    deformation_grad    :: ARRAY3D # Array{ELTYPE, 3}: [i, j, particle]
-    material_density    :: ARRAY1D # Array{ELTYPE, 1}: [particle]
-    n_moving_particles  :: Int64
-    young_modulus       :: ELTYPE
-    poisson_ratio       :: ELTYPE
-    lame_lambda         :: ELTYPE
-    lame_mu             :: ELTYPE
-    smoothing_kernel    :: K
-    smoothing_length    :: ELTYPE
-    acceleration        :: SVector{NDIMS, ELTYPE}
-    boundary_model      :: BM
-    penalty_force       :: PF
-    source_terms        :: ST
-    buffer              :: Nothing
+struct TotalLagrangianSPHSystem{
+        BM, NDIMS, ELTYPE <: Real, IC, ARRAY1D, ARRAY2D, ARRAY3D,
+        K, PF, ST,
+    } <: SolidSystem{NDIMS, IC}
+    initial_condition::IC
+    initial_coordinates::ARRAY2D # Array{ELTYPE, 2}: [dimension, particle]
+    current_coordinates::ARRAY2D # Array{ELTYPE, 2}: [dimension, particle]
+    mass::ARRAY1D # Array{ELTYPE, 1}: [particle]
+    correction_matrix::ARRAY3D # Array{ELTYPE, 3}: [i, j, particle]
+    pk1_corrected::ARRAY3D # Array{ELTYPE, 3}: [i, j, particle]
+    deformation_grad::ARRAY3D # Array{ELTYPE, 3}: [i, j, particle]
+    material_density::ARRAY1D # Array{ELTYPE, 1}: [particle]
+    n_moving_particles::Int64
+    young_modulus::ELTYPE
+    poisson_ratio::ELTYPE
+    lame_lambda::ELTYPE
+    lame_mu::ELTYPE
+    smoothing_kernel::K
+    smoothing_length::ELTYPE
+    acceleration::SVector{NDIMS, ELTYPE}
+    boundary_model::BM
+    penalty_force::PF
+    source_terms::ST
+    buffer::Nothing
 end
 
-function TotalLagrangianSPHSystem(initial_condition,
-                                  smoothing_kernel, smoothing_length,
-                                  young_modulus, poisson_ratio;
-                                  n_fixed_particles=0, boundary_model=nothing,
-                                  acceleration=ntuple(_ -> 0.0,
-                                                      ndims(smoothing_kernel)),
-                                  penalty_force=nothing, source_terms=nothing)
+function TotalLagrangianSPHSystem(
+        initial_condition,
+        smoothing_kernel, smoothing_length,
+        young_modulus, poisson_ratio;
+        n_fixed_particles = 0, boundary_model = nothing,
+        acceleration = ntuple(
+            _ -> 0.0,
+            ndims(smoothing_kernel)
+        ),
+        penalty_force = nothing, source_terms = nothing
+    )
     NDIMS = ndims(initial_condition)
     ELTYPE = eltype(initial_condition)
     n_particles = nparticles(initial_condition)
@@ -104,16 +110,18 @@ function TotalLagrangianSPHSystem(initial_condition,
     n_moving_particles = n_particles - n_fixed_particles
 
     lame_lambda = young_modulus * poisson_ratio /
-                  ((1 + poisson_ratio) * (1 - 2 * poisson_ratio))
+        ((1 + poisson_ratio) * (1 - 2 * poisson_ratio))
     lame_mu = 0.5 * young_modulus / (1 + poisson_ratio)
 
-    return TotalLagrangianSPHSystem(initial_condition, initial_coordinates,
-                                    current_coordinates, mass, correction_matrix,
-                                    pk1_corrected, deformation_grad, material_density,
-                                    n_moving_particles, young_modulus, poisson_ratio,
-                                    lame_lambda, lame_mu, smoothing_kernel,
-                                    smoothing_length, acceleration_, boundary_model,
-                                    penalty_force, source_terms, nothing)
+    return TotalLagrangianSPHSystem(
+        initial_condition, initial_coordinates,
+        current_coordinates, mass, correction_matrix,
+        pk1_corrected, deformation_grad, material_density,
+        n_moving_particles, young_modulus, poisson_ratio,
+        lame_lambda, lame_mu, smoothing_kernel,
+        smoothing_length, acceleration_, boundary_model,
+        penalty_force, source_terms, nothing
+    )
 end
 
 function Base.show(io::IO, system::TotalLagrangianSPHSystem)
@@ -220,8 +228,10 @@ function initialize!(system::TotalLagrangianSPHSystem, neighborhood_search)
     density_fun(particle) = system.material_density[particle]
 
     # Calculate correction matrix
-    compute_gradient_correction_matrix!(correction_matrix, neighborhood_search, system,
-                                        initial_coords, density_fun)
+    compute_gradient_correction_matrix!(
+        correction_matrix, neighborhood_search, system,
+        initial_coords, density_fun
+    )
 end
 
 function update_positions!(system::TotalLagrangianSPHSystem, v, u, v_ode, u_ode, semi, t)
@@ -242,8 +252,10 @@ function update_quantities!(system::TotalLagrangianSPHSystem, v, u, v_ode, u_ode
     return system
 end
 
-function update_final!(system::TotalLagrangianSPHSystem, v, u, v_ode, u_ode, semi, t;
-                       update_from_callback=false)
+function update_final!(
+        system::TotalLagrangianSPHSystem, v, u, v_ode, u_ode, semi, t;
+        update_from_callback = false
+    )
     (; boundary_model) = system
 
     # Only update boundary model
@@ -274,19 +286,23 @@ end
 
     # Loop over all pairs of particles and neighbors within the kernel cutoff.
     initial_coords = initial_coordinates(system)
-    foreach_point_neighbor(system, system, initial_coords, initial_coords,
-                           neighborhood_search;
-                           points=eachparticle(system)) do particle, neighbor,
-                                                           initial_pos_diff,
-                                                           initial_distance
+    foreach_point_neighbor(
+        system, system, initial_coords, initial_coords,
+        neighborhood_search;
+        points = eachparticle(system)
+    ) do particle, neighbor,
+            initial_pos_diff,
+            initial_distance
         # Only consider particles with a distance > 0.
         initial_distance < sqrt(eps()) && return
 
         volume = mass[neighbor] / material_density[neighbor]
         pos_diff = current_coords(system, particle) - current_coords(system, neighbor)
 
-        grad_kernel = smoothing_kernel_grad(system, initial_pos_diff,
-                                            initial_distance)
+        grad_kernel = smoothing_kernel_grad(
+            system, initial_pos_diff,
+            initial_distance
+        )
 
         result = volume * pos_diff * grad_kernel'
 
@@ -318,9 +334,11 @@ end
     return lame_lambda * tr(E) * I + 2 * lame_mu * E
 end
 
-@inline function calc_penalty_force!(dv, particle, neighbor, initial_pos_diff,
-                                     initial_distance, system, m_a, m_b, rho_a, rho_b,
-                                     ::Nothing)
+@inline function calc_penalty_force!(
+        dv, particle, neighbor, initial_pos_diff,
+        initial_distance, system, m_a, m_b, rho_a, rho_b,
+        ::Nothing
+    )
     return dv
 end
 
@@ -356,8 +374,10 @@ function write_v0!(v0, model, system::TotalLagrangianSPHSystem)
     return v0
 end
 
-function write_v0!(v0, ::BoundaryModelDummyParticles{ContinuityDensity},
-                   system::TotalLagrangianSPHSystem)
+function write_v0!(
+        v0, ::BoundaryModelDummyParticles{ContinuityDensity},
+        system::TotalLagrangianSPHSystem
+    )
     (; cache) = system.boundary_model
     (; initial_density) = cache
 
@@ -417,8 +437,10 @@ end
 function cauchy_stress(system::TotalLagrangianSPHSystem)
     NDIMS = ndims(system)
 
-    cauchy_stress_tensors = zeros(eltype(system.pk1_corrected), NDIMS, NDIMS,
-                                  nparticles(system))
+    cauchy_stress_tensors = zeros(
+        eltype(system.pk1_corrected), NDIMS, NDIMS,
+        nparticles(system)
+    )
 
     @threaded system for particle in each_moving_particle(system)
         F = deformation_gradient(system, particle)

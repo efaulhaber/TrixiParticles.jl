@@ -1,4 +1,4 @@
-@testset verbose=true "Solid RHS" begin
+@testset verbose = true "Solid RHS" begin
     # Use `@trixi_testset` to isolate the mock functions in a separate namespace
     @trixi_testset "interact! Mocked" begin
         # Pass specific PK1 and `pos_diff` to `interact!` and verify with
@@ -32,7 +32,7 @@
             [0.0, 0.0],
         ]
 
-        @testset verbose=true "Test $i" for i in 1:4
+        @testset verbose = true "Test $i" for i in 1:4
             #### Setup
             each_moving_particle = [particle[i]] # Only calculate dv for this one particle
             eachparticle = [particle[i], neighbor[i]]
@@ -132,13 +132,14 @@
         end
     end
 
-    @testset verbose=true "interact! with System and Deformation Function" begin
+    @testset verbose = true "interact! with System and Deformation Function" begin
         deformations = Dict(
             "rotation" => x -> [cos(0.3) -sin(0.3); sin(0.3) cos(0.3)] * x,
             "stretch both" => x -> [2.0 0.0; 0.0 3.0] * x,
             "rotate and stretch" => x -> [cos(0.3) -sin(0.3); sin(0.3) cos(0.3)] *
-                                         [2.0 0.0; 0.0 3.0] * x,
-            "nonlinear stretching" => x -> [x[1]^2, x[2]])
+                [2.0 0.0; 0.0 3.0] * x,
+            "nonlinear stretching" => x -> [x[1]^2, x[2]]
+        )
 
         # The acceleration in the first three should be zero (linear stretching)
         # The fourth one is calculated by hand
@@ -148,9 +149,10 @@
             "rotate and stretch" => [0.0, 0.0],
             "nonlinear stretching" => [
                 10 / 1000^2 * 1.5400218087591082 * 324.67072684047224 * 1.224, 0.0,
-            ])
+            ]
+        )
 
-        @testset verbose=true "Deformation Function: $deformation" for deformation in keys(deformations)
+        @testset verbose = true "Deformation Function: $deformation" for deformation in keys(deformations)
             J = deformations[deformation]
             u = zeros(2, 81)
             v = zeros(2, 81)
@@ -168,7 +170,7 @@
             density = 1000.0
 
             for y in 1:n_particles_per_dimension[2],
-                x in 1:n_particles_per_dimension[1]
+                    x in 1:n_particles_per_dimension[1]
 
                 particle = (x - 1) * n_particles_per_dimension[2] + y
 
@@ -181,8 +183,10 @@
             smoothing_kernel = SchoenbergCubicSplineKernel{2}()
 
             initial_condition = InitialCondition(; coordinates, mass, density)
-            system = TotalLagrangianSPHSystem(initial_condition,
-                                              smoothing_kernel, smoothing_length, E, nu)
+            system = TotalLagrangianSPHSystem(
+                initial_condition,
+                smoothing_kernel, smoothing_length, E, nu
+            )
 
             semi = Semidiscretization(system)
             tspan = (0.0, 1.0)
@@ -201,7 +205,7 @@
             data_types = [nothing, Array, TrixiParticles.PtrArray]
             @testset "$(names[i])" for i in eachindex(names)
                 data_type = data_types[i]
-                ode = semidiscretize(semi, tspan, data_type=data_type)
+                ode = semidiscretize(semi, tspan, data_type = data_type)
 
                 # Apply the deformation matrix
                 for particle in axes(u, 2)
@@ -227,8 +231,10 @@
 
                 dv = TrixiParticles.wrap_v(dv_ode, system, semi)
 
-                @test isapprox(dv[:, particle], dv_expected_41[deformation],
-                               rtol=sqrt(eps()), atol=sqrt(eps()))
+                @test isapprox(
+                    dv[:, particle], dv_expected_41[deformation],
+                    rtol = sqrt(eps()), atol = sqrt(eps())
+                )
             end
         end
     end

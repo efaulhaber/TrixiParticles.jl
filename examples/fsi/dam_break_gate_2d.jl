@@ -33,20 +33,28 @@ tank_size = (0.8, 0.8)
 
 fluid_density = 997.0
 sound_speed = 10 * sqrt(2 * gravity * initial_fluid_size[2])
-state_equation = StateEquationCole(; sound_speed, reference_density=fluid_density,
-                                   exponent=7)
+state_equation = StateEquationCole(;
+    sound_speed, reference_density = fluid_density,
+    exponent = 7
+)
 
-tank = RectangularTank(fluid_particle_spacing, initial_fluid_size, tank_size, fluid_density,
-                       n_layers=boundary_layers, spacing_ratio=spacing_ratio,
-                       acceleration=(0.0, -gravity), state_equation=state_equation)
+tank = RectangularTank(
+    fluid_particle_spacing, initial_fluid_size, tank_size, fluid_density,
+    n_layers = boundary_layers, spacing_ratio = spacing_ratio,
+    acceleration = (0.0, -gravity), state_equation = state_equation
+)
 
 # Make the gate slightly higher than the fluid
 gate_height = initial_fluid_size[2] + 4 * fluid_particle_spacing
 
-gate = RectangularShape(boundary_particle_spacing,
-                        (boundary_layers,
-                         round(Int, gate_height / boundary_particle_spacing)),
-                        (initial_fluid_size[1], 0.0), density=fluid_density)
+gate = RectangularShape(
+    boundary_particle_spacing,
+    (
+        boundary_layers,
+        round(Int, gate_height / boundary_particle_spacing),
+    ),
+    (initial_fluid_size[1], 0.0), density = fluid_density
+)
 
 # Movement of the gate according to the paper
 movement_function(t) = SVector(0.0, -285.115t^3 + 72.305t^2 + 0.1463t)
@@ -75,13 +83,17 @@ n_particles_y = round(Int, length_beam / solid_particle_spacing) + 1
 #
 # The right end of the plate is 0.2 from the right end of the tank.
 plate_position = 0.6 - n_particles_x * solid_particle_spacing
-plate = RectangularShape(solid_particle_spacing,
-                         (n_particles_x, n_particles_y - 1),
-                         (plate_position, solid_particle_spacing),
-                         density=solid_density, tlsph=true)
-fixed_particles = RectangularShape(solid_particle_spacing,
-                                   (n_particles_x, 1), (plate_position, 0.0),
-                                   density=solid_density, tlsph=true)
+plate = RectangularShape(
+    solid_particle_spacing,
+    (n_particles_x, n_particles_y - 1),
+    (plate_position, solid_particle_spacing),
+    density = solid_density, tlsph = true
+)
+fixed_particles = RectangularShape(
+    solid_particle_spacing,
+    (n_particles_x, 1), (plate_position, 0.0),
+    density = solid_density, tlsph = true
+)
 
 solid = union(plate, fixed_particles)
 
@@ -91,28 +103,34 @@ smoothing_length = 3.5 * fluid_particle_spacing
 smoothing_kernel = WendlandC2Kernel{2}()
 
 fluid_density_calculator = ContinuityDensity()
-viscosity = ArtificialViscosityMonaghan(alpha=0.1, beta=0.0)
+viscosity = ArtificialViscosityMonaghan(alpha = 0.1, beta = 0.0)
 
-fluid_system = WeaklyCompressibleSPHSystem(tank.fluid, fluid_density_calculator,
-                                           state_equation, smoothing_kernel,
-                                           smoothing_length, viscosity=viscosity,
-                                           acceleration=(0.0, -gravity))
+fluid_system = WeaklyCompressibleSPHSystem(
+    tank.fluid, fluid_density_calculator,
+    state_equation, smoothing_kernel,
+    smoothing_length, viscosity = viscosity,
+    acceleration = (0.0, -gravity)
+)
 
 # ==========================================================================================
 # ==== Boundary
 boundary_density_calculator = AdamiPressureExtrapolation()
-boundary_model_tank = BoundaryModelDummyParticles(tank.boundary.density, tank.boundary.mass,
-                                                  state_equation=state_equation,
-                                                  boundary_density_calculator,
-                                                  smoothing_kernel, smoothing_length)
+boundary_model_tank = BoundaryModelDummyParticles(
+    tank.boundary.density, tank.boundary.mass,
+    state_equation = state_equation,
+    boundary_density_calculator,
+    smoothing_kernel, smoothing_length
+)
 
-boundary_model_gate = BoundaryModelDummyParticles(gate.density, gate.mass,
-                                                  state_equation=state_equation,
-                                                  boundary_density_calculator,
-                                                  smoothing_kernel, smoothing_length)
+boundary_model_gate = BoundaryModelDummyParticles(
+    gate.density, gate.mass,
+    state_equation = state_equation,
+    boundary_density_calculator,
+    smoothing_kernel, smoothing_length
+)
 
 boundary_system_tank = BoundarySPHSystem(tank.boundary, boundary_model_tank)
-boundary_system_gate = BoundarySPHSystem(gate, boundary_model_gate, movement=gate_movement)
+boundary_system_gate = BoundarySPHSystem(gate, boundary_model_gate, movement = gate_movement)
 
 # ==========================================================================================
 # ==== Solid
@@ -125,9 +143,11 @@ hydrodynamic_masses = hydrodynamic_densites * solid_particle_spacing^2
 
 k_solid = gravity * initial_fluid_size[2]
 beta_solid = fluid_particle_spacing / solid_particle_spacing
-boundary_model_solid = BoundaryModelMonaghanKajtar(k_solid, beta_solid,
-                                                   solid_particle_spacing,
-                                                   hydrodynamic_masses)
+boundary_model_solid = BoundaryModelMonaghanKajtar(
+    k_solid, beta_solid,
+    solid_particle_spacing,
+    hydrodynamic_masses
+)
 
 # `BoundaryModelDummyParticles` usually produces better results, since Monaghan-Kajtar BCs
 # tend to introduce a non-physical gap between fluid and boundary.
@@ -142,20 +162,24 @@ boundary_model_solid = BoundaryModelMonaghanKajtar(k_solid, beta_solid,
 #                                                    AdamiPressureExtrapolation(),
 #                                                    smoothing_kernel, smoothing_length)
 
-solid_system = TotalLagrangianSPHSystem(solid,
-                                        solid_smoothing_kernel, solid_smoothing_length,
-                                        E, nu, boundary_model=boundary_model_solid,
-                                        n_fixed_particles=n_particles_x,
-                                        acceleration=(0.0, -gravity))
+solid_system = TotalLagrangianSPHSystem(
+    solid,
+    solid_smoothing_kernel, solid_smoothing_length,
+    E, nu, boundary_model = boundary_model_solid,
+    n_fixed_particles = n_particles_x,
+    acceleration = (0.0, -gravity)
+)
 
 # ==========================================================================================
 # ==== Simulation
-semi = Semidiscretization(fluid_system, boundary_system_tank,
-                          boundary_system_gate, solid_system)
+semi = Semidiscretization(
+    fluid_system, boundary_system_tank,
+    boundary_system_gate, solid_system
+)
 ode = semidiscretize(semi, tspan)
 
-info_callback = InfoCallback(interval=100)
-saving_callback = SolutionSavingCallback(dt=0.02, prefix="")
+info_callback = InfoCallback(interval = 100)
+saving_callback = SolutionSavingCallback(dt = 0.02, prefix = "")
 
 callbacks = CallbackSet(info_callback, saving_callback)
 
@@ -166,8 +190,10 @@ callbacks = CallbackSet(info_callback, saving_callback)
 # Sometimes, the method fails to do so because forces become extremely large when
 # fluid particles are very close to boundary particles, and the time integration method
 # interprets this as an instability.
-sol = solve(ode, RDPK3SpFSAL49(),
-            abstol=1e-6, # Default abstol is 1e-6 (may need to be tuned to prevent boundary penetration)
-            reltol=1e-4, # Default reltol is 1e-3 (may need to be tuned to prevent boundary penetration)
-            dtmax=1e-3, # Limit stepsize to prevent crashing
-            save_everystep=false, callback=callbacks);
+sol = solve(
+    ode, RDPK3SpFSAL49(),
+    abstol = 1.0e-6, # Default abstol is 1e-6 (may need to be tuned to prevent boundary penetration)
+    reltol = 1.0e-4, # Default reltol is 1e-3 (may need to be tuned to prevent boundary penetration)
+    dtmax = 1.0e-3, # Limit stepsize to prevent crashing
+    save_everystep = false, callback = callbacks
+);

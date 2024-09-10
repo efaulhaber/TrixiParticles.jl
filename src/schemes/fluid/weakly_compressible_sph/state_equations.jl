@@ -12,16 +12,22 @@ of water up to high pressures.
 - `background_pressure=0.0`: Background pressure.
 """
 struct StateEquationCole{ELTYPE, CLIP} # Boolean to clip negative pressure
-    sound_speed         :: ELTYPE
-    exponent            :: ELTYPE
-    reference_density   :: ELTYPE
-    background_pressure :: ELTYPE
+    sound_speed::ELTYPE
+    exponent::ELTYPE
+    reference_density::ELTYPE
+    background_pressure::ELTYPE
 
-    function StateEquationCole(; sound_speed, reference_density, exponent,
-                               background_pressure=0.0, clip_negative_pressure=false)
-        new{typeof(sound_speed),
-            clip_negative_pressure}(sound_speed, exponent, reference_density,
-                                    background_pressure)
+    function StateEquationCole(;
+            sound_speed, reference_density, exponent,
+            background_pressure = 0.0, clip_negative_pressure = false
+        )
+        new{
+            typeof(sound_speed),
+            clip_negative_pressure,
+        }(
+            sound_speed, exponent, reference_density,
+            background_pressure
+        )
     end
 end
 

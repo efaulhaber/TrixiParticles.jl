@@ -1,12 +1,12 @@
 # This is the data format returned by `load(file)` when used with `.asc` files
 struct Polygon{NDIMS, ELTYPE}
-    vertices          :: Vector{SVector{NDIMS, ELTYPE}}
-    edge_vertices     :: Vector{NTuple{2, SVector{NDIMS, ELTYPE}}}
-    vertex_normals    :: Vector{NTuple{2, SVector{NDIMS, ELTYPE}}}
-    edge_normals      :: Vector{SVector{NDIMS, ELTYPE}}
-    edge_vertices_ids :: Vector{NTuple{2, Int}}
-    min_corner        :: SVector{NDIMS, ELTYPE}
-    max_corner        :: SVector{NDIMS, ELTYPE}
+    vertices::Vector{SVector{NDIMS, ELTYPE}}
+    edge_vertices::Vector{NTuple{2, SVector{NDIMS, ELTYPE}}}
+    vertex_normals::Vector{NTuple{2, SVector{NDIMS, ELTYPE}}}
+    edge_normals::Vector{SVector{NDIMS, ELTYPE}}
+    edge_vertices_ids::Vector{NTuple{2, Int}}
+    min_corner::SVector{NDIMS, ELTYPE}
+    max_corner::SVector{NDIMS, ELTYPE}
 
     function Polygon(vertices)
         NDIMS = size(vertices, 1)
@@ -19,8 +19,8 @@ struct Polygon{NDIMS, ELTYPE}
         n_vertices = size(vertices_, 2)
         ELTYPE = eltype(vertices_)
 
-        min_corner = SVector{NDIMS}(minimum(vertices_, dims=2))
-        max_corner = SVector{NDIMS}(maximum(vertices_, dims=2))
+        min_corner = SVector{NDIMS}(minimum(vertices_, dims = 2))
+        max_corner = SVector{NDIMS}(maximum(vertices_, dims = 2))
 
         vertices = reinterpret(reshape, SVector{NDIMS, ELTYPE}, vertices_)
 
@@ -92,8 +92,10 @@ struct Polygon{NDIMS, ELTYPE}
             push!(vertex_normals, (vortex_normal_1, vortex_normal_2))
         end
 
-        return new{NDIMS, ELTYPE}(vertices, edge_vertices, vertex_normals, edge_normals,
-                                  edge_vertices_ids, min_corner, max_corner)
+        return new{NDIMS, ELTYPE}(
+            vertices, edge_vertices, vertex_normals, edge_normals,
+            edge_vertices_ids, min_corner, max_corner
+        )
     end
 end
 

@@ -1,17 +1,21 @@
 # Fluid-fluid and fluid-boundary interaction
-function interact!(dv, v_particle_system, u_particle_system,
-                   v_neighbor_system, u_neighbor_system, neighborhood_search,
-                   particle_system::EntropicallyDampedSPHSystem,
-                   neighbor_system)
+function interact!(
+        dv, v_particle_system, u_particle_system,
+        v_neighbor_system, u_neighbor_system, neighborhood_search,
+        particle_system::EntropicallyDampedSPHSystem,
+        neighbor_system
+    )
     (; sound_speed, density_calculator, correction) = particle_system
 
     system_coords = current_coordinates(u_particle_system, particle_system)
     neighbor_coords = current_coordinates(u_neighbor_system, neighbor_system)
 
     # Loop over all pairs of particles and neighbors within the kernel cutoff.
-    foreach_point_neighbor(particle_system, neighbor_system,
-                           system_coords, neighbor_coords,
-                           neighborhood_search) do particle, neighbor, pos_diff, distance
+    foreach_point_neighbor(
+        particle_system, neighbor_system,
+        system_coords, neighbor_coords,
+        neighborhood_search
+    ) do particle, neighbor, pos_diff, distance
         # Only consider particles with a distance > 0.
         distance < sqrt(eps()) && return
 
@@ -26,36 +30,46 @@ function interact!(dv, v_particle_system, u_particle_system,
 
         grad_kernel = smoothing_kernel_grad(particle_system, pos_diff, distance)
 
-        dv_pressure = pressure_acceleration(particle_system, neighbor_system, neighbor,
-                                            m_a, m_b, p_a, p_b, rho_a, rho_b, pos_diff,
-                                            distance, grad_kernel, correction)
+        dv_pressure = pressure_acceleration(
+            particle_system, neighbor_system, neighbor,
+            m_a, m_b, p_a, p_b, rho_a, rho_b, pos_diff,
+            distance, grad_kernel, correction
+        )
 
-        dv_viscosity_ = dv_viscosity(particle_system, neighbor_system,
-                                     v_particle_system, v_neighbor_system,
-                                     particle, neighbor, pos_diff, distance,
-                                     sound_speed, m_a, m_b, rho_a, rho_b, grad_kernel)
+        dv_viscosity_ = dv_viscosity(
+            particle_system, neighbor_system,
+            v_particle_system, v_neighbor_system,
+            particle, neighbor, pos_diff, distance,
+            sound_speed, m_a, m_b, rho_a, rho_b, grad_kernel
+        )
 
         for i in 1:ndims(particle_system)
             dv[i, particle] += dv_pressure[i] + dv_viscosity_[i]
         end
 
         v_diff = current_velocity(v_particle_system, particle_system, particle) -
-                 current_velocity(v_neighbor_system, neighbor_system, neighbor)
+            current_velocity(v_neighbor_system, neighbor_system, neighbor)
 
-        pressure_evolution!(dv, particle_system, v_diff, grad_kernel,
-                            particle, pos_diff, distance, sound_speed, m_a, m_b,
-                            p_a, p_b, rho_a, rho_b)
+        pressure_evolution!(
+            dv, particle_system, v_diff, grad_kernel,
+            particle, pos_diff, distance, sound_speed, m_a, m_b,
+            p_a, p_b, rho_a, rho_b
+        )
 
-        continuity_equation!(dv, density_calculator, v_diff, particle, m_b, rho_a, rho_b,
-                             particle_system, grad_kernel)
+        continuity_equation!(
+            dv, density_calculator, v_diff, particle, m_b, rho_a, rho_b,
+            particle_system, grad_kernel
+        )
     end
 
     return dv
 end
 
-@inline function pressure_evolution!(dv, particle_system, v_diff, grad_kernel, particle,
-                                     pos_diff, distance, sound_speed, m_a, m_b,
-                                     p_a, p_b, rho_a, rho_b)
+@inline function pressure_evolution!(
+        dv, particle_system, v_diff, grad_kernel, particle,
+        pos_diff, distance, sound_speed, m_a, m_b,
+        p_a, p_b, rho_a, rho_b
+    )
     (; smoothing_length) = particle_system
 
     volume_a = m_a / rho_a
@@ -94,18 +108,22 @@ end
 end
 
 # We need a separate method for EDAC since the density is stored in `v[end-1,:]`.
-@inline function continuity_equation!(dv, density_calculator::ContinuityDensity,
-                                      vdiff, particle, m_b, rho_a, rho_b,
-                                      particle_system::EntropicallyDampedSPHSystem,
-                                      grad_kernel)
+@inline function continuity_equation!(
+        dv, density_calculator::ContinuityDensity,
+        vdiff, particle, m_b, rho_a, rho_b,
+        particle_system::EntropicallyDampedSPHSystem,
+        grad_kernel
+    )
     dv[end - 1, particle] += rho_a / rho_b * m_b * dot(vdiff, grad_kernel)
 
     return dv
 end
 
-@inline function continuity_equation!(dv, density_calculator,
-                                      vdiff, particle, m_b, rho_a, rho_b,
-                                      particle_system::EntropicallyDampedSPHSystem,
-                                      grad_kernel)
+@inline function continuity_equation!(
+        dv, density_calculator,
+        vdiff, particle, m_b, rho_a, rho_b,
+        particle_system::EntropicallyDampedSPHSystem,
+        grad_kernel
+    )
     return dv
 end

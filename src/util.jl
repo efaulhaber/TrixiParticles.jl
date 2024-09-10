@@ -15,14 +15,14 @@ end
 function print_startup_message()
     s = """
 
-        ████████╗██████╗ ██╗██╗  ██╗██╗██████╗  █████╗ ██████╗ ████████╗██╗ ██████╗██╗     ███████╗███████╗
-        ╚══██╔══╝██╔══██╗██║╚██╗██╔╝██║██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██║██╔════╝██║     ██╔════╝██╔════╝
-           ██║   ██████╔╝██║ ╚███╔╝ ██║██████╔╝███████║██████╔╝   ██║   ██║██║     ██║     █████╗  ███████╗
-           ██║   ██╔══██╗██║ ██╔██╗ ██║██╔═══╝ ██╔══██║██╔══██╗   ██║   ██║██║     ██║     ██╔══╝  ╚════██║
-           ██║   ██║  ██║██║██╔╝ ██╗██║██║     ██║  ██║██║  ██║   ██║   ██║╚██████╗███████╗███████╗███████║
-           ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝╚══════╝╚══════╝╚══════╝
+    ████████╗██████╗ ██╗██╗  ██╗██╗██████╗  █████╗ ██████╗ ████████╗██╗ ██████╗██╗     ███████╗███████╗
+    ╚══██╔══╝██╔══██╗██║╚██╗██╔╝██║██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██║██╔════╝██║     ██╔════╝██╔════╝
+       ██║   ██████╔╝██║ ╚███╔╝ ██║██████╔╝███████║██████╔╝   ██║   ██║██║     ██║     █████╗  ███████╗
+       ██║   ██╔══██╗██║ ██╔██╗ ██║██╔═══╝ ██╔══██║██╔══██╗   ██║   ██║██║     ██║     ██╔══╝  ╚════██║
+       ██║   ██║  ██║██║██╔╝ ██╗██║██║     ██║  ██║██║  ██║   ██║   ██║╚██████╗███████╗███████╗███████║
+       ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝╚══════╝╚══════╝╚══════╝
 
-        """
+    """
     println(s)
 end
 
@@ -84,7 +84,7 @@ See also: [Infiltrator.jl](https://github.com/JuliaDebug/Infiltrator.jl)
     API of TrixiParticles.jl, and it thus can altered (or be removed) at any time without it being
     considered a breaking change.
 """
-macro autoinfiltrate(condition=true)
+macro autoinfiltrate(condition = true)
     pkgid = Base.PkgId(Base.UUID("5903a43b-9cc3-4c30-8d17-598619ec4e9b"), "Infiltrator")
     if !haskey(Base.loaded_modules, pkgid)
         try
@@ -97,16 +97,20 @@ macro autoinfiltrate(condition=true)
     lnn = LineNumberNode(__source__.line, __source__.file)
 
     if i === nothing
-        return Expr(:macrocall,
-                    Symbol("@warn"),
-                    lnn,
-                    "Could not load Infiltrator.")
+        return Expr(
+            :macrocall,
+            Symbol("@warn"),
+            lnn,
+            "Could not load Infiltrator."
+        )
     end
 
-    return Expr(:macrocall,
-                Expr(:., i, QuoteNode(Symbol("@infiltrate"))),
-                lnn,
-                esc(condition))
+    return Expr(
+        :macrocall,
+        Expr(:., i, QuoteNode(Symbol("@infiltrate"))),
+        lnn,
+        esc(condition)
+    )
 end
 
 function type2string(type)
@@ -127,8 +131,10 @@ function compute_git_hash()
     end
 
     try
-        git_cmd = Cmd(`git describe --tags --always --first-parent --dirty`,
-                      dir=pkg_directory)
+        git_cmd = Cmd(
+            `git describe --tags --always --first-parent --dirty`,
+            dir = pkg_directory
+        )
         return string(readchomp(git_cmd))
     catch e
         return "UnknownVersion"

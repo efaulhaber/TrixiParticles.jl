@@ -20,8 +20,10 @@ sound_speed = 120.0
 sphere_radius = 0.05
 
 sphere1_center = (0.25, sphere_radius)
-sphere1 = SphereShape(fluid_particle_spacing, sphere_radius, sphere1_center,
-                      fluid_density, sphere_type=VoxelSphere())
+sphere1 = SphereShape(
+    fluid_particle_spacing, sphere_radius, sphere1_center,
+    fluid_density, sphere_type = VoxelSphere()
+)
 
 # ==========================================================================================
 # ==== Fluid
@@ -35,10 +37,12 @@ nu = 0.001
 alpha = 8 * nu / (fluid_smoothing_length * sound_speed)
 # `adhesion_coefficient = 1.0` and `surface_tension_coefficient = 0.01` for perfect wetting
 # `adhesion_coefficient = 0.001` and `surface_tension_coefficient = 2.0` for no wetting
-trixi_include(@__MODULE__,
-              joinpath(examples_dir(), "fluid", "falling_water_spheres_2d.jl"),
-              sphere=nothing, sphere1=sphere1, adhesion_coefficient=0.001,
-              wall_viscosity=4.0 * nu, surface_tension_coefficient=2.0, alpha=alpha,
-              sound_speed=sound_speed, fluid_density=fluid_density, nu=nu,
-              fluid_particle_spacing=fluid_particle_spacing, tspan=tspan,
-              tank_size=tank_size)
+trixi_include(
+    @__MODULE__,
+    joinpath(examples_dir(), "fluid", "falling_water_spheres_2d.jl"),
+    sphere = nothing, sphere1 = sphere1, adhesion_coefficient = 0.001,
+    wall_viscosity = 4.0 * nu, surface_tension_coefficient = 2.0, alpha = alpha,
+    sound_speed = sound_speed, fluid_density = fluid_density, nu = nu,
+    fluid_particle_spacing = fluid_particle_spacing, tspan = tspan,
+    tank_size = tank_size
+)

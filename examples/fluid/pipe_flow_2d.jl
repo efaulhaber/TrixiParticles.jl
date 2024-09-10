@@ -27,8 +27,10 @@ flow_direction = [1.0, 0.0]
 reynolds_number = 100
 const prescribed_velocity = 2.0
 
-boundary_size = (domain_size[1] + 2 * particle_spacing * open_boundary_layers,
-                 domain_size[2])
+boundary_size = (
+    domain_size[1] + 2 * particle_spacing * open_boundary_layers,
+    domain_size[2],
+)
 
 fluid_density = 1000.0
 
@@ -38,12 +40,16 @@ pressure = 1000.0
 
 sound_speed = 10 * prescribed_velocity
 
-state_equation = StateEquationCole(; sound_speed, reference_density=fluid_density,
-                                   exponent=7, background_pressure=pressure)
+state_equation = StateEquationCole(;
+    sound_speed, reference_density = fluid_density,
+    exponent = 7, background_pressure = pressure
+)
 
-pipe = RectangularTank(particle_spacing, domain_size, boundary_size, fluid_density,
-                       pressure=pressure, n_layers=boundary_layers,
-                       faces=(false, false, true, true))
+pipe = RectangularTank(
+    particle_spacing, domain_size, boundary_size, fluid_density,
+    pressure = pressure, n_layers = boundary_layers,
+    faces = (false, false, true, true)
+)
 
 # Shift pipe walls in negative x-direction for the inflow
 pipe.boundary.coordinates[1, :] .-= particle_spacing * open_boundary_layers
@@ -59,12 +65,14 @@ fluid_density_calculator = ContinuityDensity()
 
 kinematic_viscosity = prescribed_velocity * domain_size[2] / reynolds_number
 
-viscosity = ViscosityAdami(nu=kinematic_viscosity)
+viscosity = ViscosityAdami(nu = kinematic_viscosity)
 
-fluid_system = EntropicallyDampedSPHSystem(pipe.fluid, smoothing_kernel, smoothing_length,
-                                           sound_speed, viscosity=viscosity,
-                                           density_calculator=fluid_density_calculator,
-                                           buffer_size=n_buffer_particles)
+fluid_system = EntropicallyDampedSPHSystem(
+    pipe.fluid, smoothing_kernel, smoothing_length,
+    sound_speed, viscosity = viscosity,
+    density_calculator = fluid_density_calculator,
+    buffer_size = n_buffer_particles
+)
 
 # Alternatively the WCSPH scheme can be used
 # alpha = 8 * kinematic_viscosity / (smoothing_length * sound_speed)
@@ -84,52 +92,66 @@ function velocity_function(pos, t)
     return SVector(prescribed_velocity, 0.0)
 end
 
-inflow = InFlow(; plane=([0.0, 0.0], [0.0, domain_size[2]]), flow_direction,
-                open_boundary_layers, density=fluid_density, particle_spacing)
+inflow = InFlow(;
+    plane = ([0.0, 0.0], [0.0, domain_size[2]]), flow_direction,
+    open_boundary_layers, density = fluid_density, particle_spacing
+)
 
-open_boundary_in = OpenBoundarySPHSystem(inflow; sound_speed, fluid_system,
-                                         boundary_model=BoundaryModelLastiwka(),
-                                         buffer_size=n_buffer_particles,
-                                         reference_density=fluid_density,
-                                         reference_pressure=pressure,
-                                         reference_velocity=velocity_function)
+open_boundary_in = OpenBoundarySPHSystem(
+    inflow; sound_speed, fluid_system,
+    boundary_model = BoundaryModelLastiwka(),
+    buffer_size = n_buffer_particles,
+    reference_density = fluid_density,
+    reference_pressure = pressure,
+    reference_velocity = velocity_function
+)
 
-outflow = OutFlow(; plane=([domain_size[1], 0.0], [domain_size[1], domain_size[2]]),
-                  flow_direction, open_boundary_layers, density=fluid_density,
-                  particle_spacing)
+outflow = OutFlow(;
+    plane = ([domain_size[1], 0.0], [domain_size[1], domain_size[2]]),
+    flow_direction, open_boundary_layers, density = fluid_density,
+    particle_spacing
+)
 
-open_boundary_out = OpenBoundarySPHSystem(outflow; sound_speed, fluid_system,
-                                          boundary_model=BoundaryModelLastiwka(),
-                                          buffer_size=n_buffer_particles,
-                                          reference_density=fluid_density,
-                                          reference_pressure=pressure,
-                                          reference_velocity=velocity_function)
+open_boundary_out = OpenBoundarySPHSystem(
+    outflow; sound_speed, fluid_system,
+    boundary_model = BoundaryModelLastiwka(),
+    buffer_size = n_buffer_particles,
+    reference_density = fluid_density,
+    reference_pressure = pressure,
+    reference_velocity = velocity_function
+)
 
 # ==========================================================================================
 # ==== Boundary
 
-boundary_model = BoundaryModelDummyParticles(pipe.boundary.density, pipe.boundary.mass,
-                                             AdamiPressureExtrapolation(),
-                                             state_equation=state_equation,
-                                             #viscosity=ViscosityAdami(nu=1e-4),
-                                             smoothing_kernel, smoothing_length)
+boundary_model = BoundaryModelDummyParticles(
+    pipe.boundary.density, pipe.boundary.mass,
+    AdamiPressureExtrapolation(),
+    state_equation = state_equation,
+    #viscosity=ViscosityAdami(nu=1e-4),
+    smoothing_kernel, smoothing_length
+)
 
 boundary_system = BoundarySPHSystem(pipe.boundary, boundary_model)
 
 # ==========================================================================================
 # ==== Simulation
-semi = Semidiscretization(fluid_system, open_boundary_in, open_boundary_out,
-                          boundary_system)
+semi = Semidiscretization(
+    fluid_system, open_boundary_in, open_boundary_out,
+    boundary_system
+)
 
 ode = semidiscretize(semi, tspan)
 
-info_callback = InfoCallback(interval=100)
-saving_callback = SolutionSavingCallback(dt=0.02, prefix="")
+info_callback = InfoCallback(interval = 100)
+saving_callback = SolutionSavingCallback(dt = 0.02, prefix = "")
 
 callbacks = CallbackSet(info_callback, saving_callback, UpdateCallback())
 
-sol = solve(ode, RDPK3SpFSAL35(),
-            abstol=1e-5, # Default abstol is 1e-6 (may need to be tuned to prevent boundary penetration)
-            reltol=1e-3, # Default reltol is 1e-3 (may need to be tuned to prevent boundary penetration)
-            dtmax=1e-2, # Limit stepsize to prevent crashing
-            save_everystep=false, callback=callbacks);
+sol = solve(
+    ode, RDPK3SpFSAL35(),
+    abstol = 1.0e-5, # Default abstol is 1e-6 (may need to be tuned to prevent boundary penetration)
+    reltol = 1.0e-3, # Default reltol is 1e-3 (may need to be tuned to prevent boundary penetration)
+    dtmax = 1.0e-2, # Limit stepsize to prevent crashing
+    save_everystep = false, callback = callbacks
+);

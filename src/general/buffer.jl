@@ -1,7 +1,7 @@
 struct SystemBuffer{V}
-    active_particle :: BitVector
-    eachparticle    :: V # Vector{Int}
-    buffer_size     :: Int
+    active_particle::BitVector
+    eachparticle::V # Vector{Int}
+    buffer_size::Int
 
     function SystemBuffer(active_size, buffer_size::Integer)
         active_particle = vcat(trues(active_size), falses(buffer_size))
@@ -17,10 +17,12 @@ function allocate_buffer(initial_condition, buffer::SystemBuffer)
     (; buffer_size) = buffer
 
     # Initialize particles far away from simulation domain
-    coordinates = fill(1e16, ndims(initial_condition), buffer_size)
+    coordinates = fill(1.0e16, ndims(initial_condition), buffer_size)
 
-    if all(rho -> isapprox(rho, first(initial_condition.density), atol=eps(), rtol=eps()),
-           initial_condition.density)
+    if all(
+            rho -> isapprox(rho, first(initial_condition.density), atol = eps(), rtol = eps()),
+            initial_condition.density
+        )
         density = first(initial_condition.density)
     else
         throw(ArgumentError("`initial_condition.density` needs to be constant when using `SystemBuffer`"))
@@ -80,7 +82,7 @@ end
     # Set particle far away from simulation domain
     for dim in 1:ndims(system)
         # Inf or NaN causes instability outcome.
-        u[dim, particle] = 1e16
+        u[dim, particle] = 1.0e16
     end
 
     return system

@@ -27,21 +27,25 @@ specified material properties and contact mechanics.
     This is an experimental feature and may change in a future releases.
 """
 struct DEMSystem{NDIMS, ELTYPE <: Real, IC, ARRAY1D, ST} <: SolidSystem{NDIMS, IC}
-    initial_condition   :: IC
-    mass                :: ARRAY1D               # [particle]
-    radius              :: ARRAY1D               # [particle]
-    elastic_modulus     :: ELTYPE
-    poissons_ratio      :: ELTYPE
-    normal_stiffness    :: ELTYPE
-    damping_coefficient :: ELTYPE
-    acceleration        :: SVector{NDIMS, ELTYPE}
-    source_terms        :: ST
-    buffer              :: Nothing
+    initial_condition::IC
+    mass::ARRAY1D               # [particle]
+    radius::ARRAY1D               # [particle]
+    elastic_modulus::ELTYPE
+    poissons_ratio::ELTYPE
+    normal_stiffness::ELTYPE
+    damping_coefficient::ELTYPE
+    acceleration::SVector{NDIMS, ELTYPE}
+    source_terms::ST
+    buffer::Nothing
 
-    function DEMSystem(initial_condition, normal_stiffness, elastic_modulus, poissons_ratio;
-                       damping_coefficient=0.0001,
-                       acceleration=ntuple(_ -> 0.0,
-                                           ndims(initial_condition)), source_terms=nothing)
+    function DEMSystem(
+            initial_condition, normal_stiffness, elastic_modulus, poissons_ratio;
+            damping_coefficient = 0.0001,
+            acceleration = ntuple(
+                _ -> 0.0,
+                ndims(initial_condition)
+            ), source_terms = nothing
+        )
         NDIMS = ndims(initial_condition)
         ELTYPE = eltype(initial_condition)
 
@@ -54,11 +58,15 @@ struct DEMSystem{NDIMS, ELTYPE <: Real, IC, ARRAY1D, ST} <: SolidSystem{NDIMS, I
             throw(ArgumentError("`acceleration` must be of length $NDIMS for a $(NDIMS)D problem"))
         end
 
-        return new{NDIMS, ELTYPE, typeof(initial_condition), typeof(mass),
-                   typeof(source_terms)}(initial_condition, mass, radius, elastic_modulus,
-                                         poissons_ratio, normal_stiffness,
-                                         damping_coefficient, acceleration_, source_terms,
-                                         nothing)
+        return new{
+            NDIMS, ELTYPE, typeof(initial_condition), typeof(mass),
+            typeof(source_terms),
+        }(
+            initial_condition, mass, radius, elastic_modulus,
+            poissons_ratio, normal_stiffness,
+            damping_coefficient, acceleration_, source_terms,
+            nothing
+        )
     end
 end
 

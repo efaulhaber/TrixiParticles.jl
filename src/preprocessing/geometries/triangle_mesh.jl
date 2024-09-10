@@ -1,15 +1,15 @@
 # This is the data format returned by `load(file)` when used with `.stl` files
 struct TriangleMesh{NDIMS, ELTYPE}
-    vertices          :: Vector{SVector{NDIMS, ELTYPE}}
-    face_vertices     :: Vector{NTuple{3, SVector{NDIMS, ELTYPE}}}
-    face_vertices_ids :: Vector{NTuple{3, Int}}
-    face_edges_ids    :: Vector{NTuple{3, Int}}
-    edge_vertices_ids :: Vector{NTuple{2, Int}}
-    vertex_normals    :: Vector{SVector{NDIMS, ELTYPE}}
-    edge_normals      :: Vector{SVector{NDIMS, ELTYPE}}
-    face_normals      :: Vector{SVector{NDIMS, ELTYPE}}
-    min_corner        :: SVector{NDIMS, ELTYPE}
-    max_corner        :: SVector{NDIMS, ELTYPE}
+    vertices::Vector{SVector{NDIMS, ELTYPE}}
+    face_vertices::Vector{NTuple{3, SVector{NDIMS, ELTYPE}}}
+    face_vertices_ids::Vector{NTuple{3, Int}}
+    face_edges_ids::Vector{NTuple{3, Int}}
+    edge_vertices_ids::Vector{NTuple{2, Int}}
+    vertex_normals::Vector{SVector{NDIMS, ELTYPE}}
+    edge_normals::Vector{SVector{NDIMS, ELTYPE}}
+    face_normals::Vector{SVector{NDIMS, ELTYPE}}
+    min_corner::SVector{NDIMS, ELTYPE}
+    max_corner::SVector{NDIMS, ELTYPE}
 
     function TriangleMesh(face_vertices, face_normals, vertices)
         NDIMS = 3
@@ -33,7 +33,7 @@ struct TriangleMesh{NDIMS, ELTYPE}
             v3 = face_vertices[i][3]
 
             # Since it's only sorted by the first entry, `v1` might be one of the following vertices
-            vertex_id1 = searchsortedfirst(vertices, v1 .- 1e-14)
+            vertex_id1 = searchsortedfirst(vertices, v1 .- 1.0e-14)
             for vertex_id in eachindex(vertices)[vertex_id1:end]
                 if isapprox(vertices[vertex_id], v1)
                     vertex_id1 = vertex_id
@@ -42,7 +42,7 @@ struct TriangleMesh{NDIMS, ELTYPE}
             end
 
             # Since it's only sorted by the first entry, `v2` might be one of the following vertices
-            vertex_id2 = searchsortedfirst(vertices, v2 .- 1e-14)
+            vertex_id2 = searchsortedfirst(vertices, v2 .- 1.0e-14)
             for vertex_id in eachindex(vertices)[vertex_id2:end]
                 if isapprox(vertices[vertex_id], v2)
                     vertex_id2 = vertex_id
@@ -51,7 +51,7 @@ struct TriangleMesh{NDIMS, ELTYPE}
             end
 
             # Since it's only sorted by the first entry, `v3` might be one of the following vertices
-            vertex_id3 = searchsortedfirst(vertices, v3 .- 1e-14)
+            vertex_id3 = searchsortedfirst(vertices, v3 .- 1.0e-14)
             for vertex_id in eachindex(vertices)[vertex_id3:end]
                 if isapprox(vertices[vertex_id], v3)
                     vertex_id3 = vertex_id
@@ -129,10 +129,12 @@ struct TriangleMesh{NDIMS, ELTYPE}
         min_corner = SVector([minimum(v[i] for v in vertices) for i in 1:NDIMS]...)
         max_corner = SVector([maximum(v[i] for v in vertices) for i in 1:NDIMS]...)
 
-        return new{NDIMS, ELTYPE}(vertices, face_vertices, face_vertices_ids,
-                                  face_edges_ids, edge_vertices_ids,
-                                  normalize.(vertex_normals), normalize.(edge_normals),
-                                  face_normals, min_corner, max_corner)
+        return new{NDIMS, ELTYPE}(
+            vertices, face_vertices, face_vertices_ids,
+            face_edges_ids, edge_vertices_ids,
+            normalize.(vertex_normals), normalize.(edge_normals),
+            face_normals, min_corner, max_corner
+        )
     end
 end
 
@@ -193,15 +195,15 @@ end
 function unique_sorted(vertices)
     # Sort by the first entry of the vectors
     compare_first_element = (x, y) -> x[1] < y[1]
-    vertices_sorted = sort!(vertices, lt=compare_first_element)
+    vertices_sorted = sort!(vertices, lt = compare_first_element)
     keep = trues(length(vertices_sorted))
 
     PointNeighbors.@threaded vertices_sorted for i in eachindex(vertices_sorted)
         # We only sorted by the first entry, so we have to check all previous vertices
         # until the first entry is too far away.
         j = i - 1
-        while j >= 1 && isapprox(vertices_sorted[j][1], vertices_sorted[i][1], atol=1e-14)
-            if isapprox(vertices_sorted[i], vertices_sorted[j], atol=1e-14)
+        while j >= 1 && isapprox(vertices_sorted[j][1], vertices_sorted[i][1], atol = 1.0e-14)
+            if isapprox(vertices_sorted[i], vertices_sorted[j], atol = 1.0e-14)
                 keep[i] = false
             end
             j -= 1

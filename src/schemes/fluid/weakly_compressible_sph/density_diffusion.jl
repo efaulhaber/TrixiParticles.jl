@@ -50,9 +50,11 @@ struct DensityDiffusionMolteniColagrossi{ELTYPE} <: DensityDiffusion
     end
 end
 
-@inline function density_diffusion_psi(::DensityDiffusionMolteniColagrossi, rho_a, rho_b,
-                                       pos_diff, distance, system, neighbor_system,
-                                       particle, neighbor)
+@inline function density_diffusion_psi(
+        ::DensityDiffusionMolteniColagrossi, rho_a, rho_b,
+        pos_diff, distance, system, neighbor_system,
+        particle, neighbor
+    )
     return 2 * (rho_a - rho_b) * pos_diff / distance^2
 end
 
@@ -86,9 +88,11 @@ struct DensityDiffusionFerrari <: DensityDiffusion
     DensityDiffusionFerrari() = new(1)
 end
 
-@inline function density_diffusion_psi(::DensityDiffusionFerrari, rho_a, rho_b,
-                                       pos_diff, distance, system, neighbor_system,
-                                       particle, neighbor)
+@inline function density_diffusion_psi(
+        ::DensityDiffusionFerrari, rho_a, rho_b,
+        pos_diff, distance, system, neighbor_system,
+        particle, neighbor
+    )
     (; smoothing_length) = system
 
     return ((rho_a - rho_b) / 2smoothing_length) * pos_diff / distance
@@ -137,26 +141,34 @@ diffusion terms.
   [doi: 10.1016/j.cpc.2008.12.004](https://doi.org/10.1016/j.cpc.2008.12.004)
 """
 struct DensityDiffusionAntuono{NDIMS, ELTYPE, ARRAY2D, ARRAY3D} <: DensityDiffusion
-    delta                       :: ELTYPE
-    correction_matrix           :: ARRAY3D # Array{ELTYPE, 3}: [i, j, particle]
-    normalized_density_gradient :: ARRAY2D # Array{ELTYPE, 2}: [i, particle]
+    delta::ELTYPE
+    correction_matrix::ARRAY3D # Array{ELTYPE, 3}: [i, j, particle]
+    normalized_density_gradient::ARRAY2D # Array{ELTYPE, 2}: [i, particle]
 
     function DensityDiffusionAntuono(delta, correction_matrix, normalized_density_gradient)
-        new{size(correction_matrix, 1), typeof(delta),
+        new{
+            size(correction_matrix, 1), typeof(delta),
             typeof(normalized_density_gradient),
-            typeof(correction_matrix)}(delta, correction_matrix,
-                                       normalized_density_gradient)
+            typeof(correction_matrix),
+        }(
+            delta, correction_matrix,
+            normalized_density_gradient
+        )
     end
 end
 
 function DensityDiffusionAntuono(initial_condition; delta)
     NDIMS = ndims(initial_condition)
     ELTYPE = eltype(initial_condition)
-    correction_matrix = Array{ELTYPE, 3}(undef, NDIMS, NDIMS,
-                                         nparticles(initial_condition))
+    correction_matrix = Array{ELTYPE, 3}(
+        undef, NDIMS, NDIMS,
+        nparticles(initial_condition)
+    )
 
-    normalized_density_gradient = Array{ELTYPE, 2}(undef, NDIMS,
-                                                   nparticles(initial_condition))
+    normalized_density_gradient = Array{ELTYPE, 2}(
+        undef, NDIMS,
+        nparticles(initial_condition)
+    )
 
     return DensityDiffusionAntuono(delta, correction_matrix, normalized_density_gradient)
 end
@@ -171,14 +183,18 @@ function Base.show(io::IO, density_diffusion::DensityDiffusionAntuono)
     print(io, ")")
 end
 
-@inline function density_diffusion_psi(density_diffusion::DensityDiffusionAntuono,
-                                       rho_a, rho_b, pos_diff, distance, system,
-                                       neighbor_system, particle, neighbor)
+@inline function density_diffusion_psi(
+        density_diffusion::DensityDiffusionAntuono,
+        rho_a, rho_b, pos_diff, distance, system,
+        neighbor_system, particle, neighbor
+    )
     (; normalized_density_gradient) = density_diffusion
 
     normalized_gradient_a = extract_svector(normalized_density_gradient, system, particle)
-    normalized_gradient_b = extract_svector(normalized_density_gradient, neighbor_system,
-                                            neighbor)
+    normalized_gradient_b = extract_svector(
+        normalized_density_gradient, neighbor_system,
+        neighbor
+    )
 
     # Fist term by Molteni & Colagrossi
     result = 2 * (rho_a - rho_b)
@@ -189,23 +205,29 @@ end
     return result * pos_diff / distance^2
 end
 
-function update!(density_diffusion::DensityDiffusionAntuono, neighborhood_search,
-                 v, u, system, semi)
+function update!(
+        density_diffusion::DensityDiffusionAntuono, neighborhood_search,
+        v, u, system, semi
+    )
     (; normalized_density_gradient) = density_diffusion
 
     # Compute correction matrix
-    density_fun = @inline(particle->particle_density(v, system, particle))
+    density_fun = @inline(particle -> particle_density(v, system, particle))
     system_coords = current_coordinates(u, system)
 
-    compute_gradient_correction_matrix!(density_diffusion.correction_matrix,
-                                        neighborhood_search, system,
-                                        system_coords, density_fun)
+    compute_gradient_correction_matrix!(
+        density_diffusion.correction_matrix,
+        neighborhood_search, system,
+        system_coords, density_fun
+    )
 
     # Compute normalized density gradient
     set_zero!(normalized_density_gradient)
 
-    foreach_point_neighbor(system, system, system_coords, system_coords,
-                           neighborhood_search) do particle, neighbor, pos_diff, distance
+    foreach_point_neighbor(
+        system, system, system_coords, system_coords,
+        neighborhood_search
+    ) do particle, neighbor, pos_diff, distance
         # Only consider particles with a distance > 0
         distance < sqrt(eps()) && return
 
@@ -228,13 +250,15 @@ function update!(density_diffusion::DensityDiffusionAntuono, neighborhood_search
     return density_diffusion
 end
 
-@inline function density_diffusion!(dv, density_diffusion::DensityDiffusion,
-                                    v_particle_system, v_neighbor_system,
-                                    particle, neighbor, pos_diff, distance,
-                                    m_b, rho_a, rho_b,
-                                    particle_system::FluidSystem,
-                                    neighbor_system::FluidSystem,
-                                    grad_kernel)
+@inline function density_diffusion!(
+        dv, density_diffusion::DensityDiffusion,
+        v_particle_system, v_neighbor_system,
+        particle, neighbor, pos_diff, distance,
+        m_b, rho_a, rho_b,
+        particle_system::FluidSystem,
+        neighbor_system::FluidSystem,
+        grad_kernel
+    )
     # Density diffusion terms are all zero for distance zero
     distance < sqrt(eps()) && return
 
@@ -244,18 +268,22 @@ end
 
     volume_b = m_b / rho_b
 
-    psi = density_diffusion_psi(density_diffusion, rho_a, rho_b, pos_diff, distance,
-                                particle_system, neighbor_system, particle, neighbor)
+    psi = density_diffusion_psi(
+        density_diffusion, rho_a, rho_b, pos_diff, distance,
+        particle_system, neighbor_system, particle, neighbor
+    )
     density_diffusion_term = dot(psi, grad_kernel) * volume_b
 
     dv[end, particle] += delta * smoothing_length * sound_speed * density_diffusion_term
 end
 
 # Density diffusion `nothing` or interaction other than fluid-fluid
-@inline function density_diffusion!(dv, density_diffusion,
-                                    v_particle_system, v_neighbor_system,
-                                    particle, neighbor, pos_diff, distance,
-                                    m_b, rho_a, rho_b,
-                                    particle_system, neighbor_system, grad_kernel)
+@inline function density_diffusion!(
+        dv, density_diffusion,
+        v_particle_system, v_neighbor_system,
+        particle, neighbor, pos_diff, distance,
+        m_b, rho_a, rho_b,
+        particle_system, neighbor_system, grad_kernel
+    )
     return dv
 end

@@ -74,30 +74,38 @@ InitialCondition{Float64}(-1.0, [0.0 1.0 1.0; 0.0 0.0 1.0], [0.0 2.0 2.0; 0.0 0.
 ```
 """
 struct InitialCondition{ELTYPE}
-    particle_spacing :: ELTYPE
-    coordinates      :: Array{ELTYPE, 2}
-    velocity         :: Array{ELTYPE, 2}
-    mass             :: Array{ELTYPE, 1}
-    density          :: Array{ELTYPE, 1}
-    pressure         :: Array{ELTYPE, 1}
+    particle_spacing::ELTYPE
+    coordinates::Array{ELTYPE, 2}
+    velocity::Array{ELTYPE, 2}
+    mass::Array{ELTYPE, 1}
+    density::Array{ELTYPE, 1}
+    pressure::Array{ELTYPE, 1}
 
-    function InitialCondition(; coordinates, density, velocity=zeros(size(coordinates, 1)),
-                              mass=nothing, pressure=0.0, particle_spacing=-1.0)
+    function InitialCondition(;
+            coordinates, density, velocity = zeros(size(coordinates, 1)),
+            mass = nothing, pressure = 0.0, particle_spacing = -1.0
+        )
         NDIMS = size(coordinates, 1)
 
-        return InitialCondition{NDIMS}(coordinates, velocity, mass, density,
-                                       pressure, particle_spacing)
+        return InitialCondition{NDIMS}(
+            coordinates, velocity, mass, density,
+            pressure, particle_spacing
+        )
     end
 
     # Function barrier to make `NDIMS` static and therefore SVectors type-stable
-    function InitialCondition{NDIMS}(coordinates, velocity, mass, density,
-                                     pressure, particle_spacing) where {NDIMS}
+    function InitialCondition{NDIMS}(
+            coordinates, velocity, mass, density,
+            pressure, particle_spacing
+        ) where {NDIMS}
         ELTYPE = eltype(coordinates)
         n_particles = size(coordinates, 2)
 
         if n_particles == 0
-            return new{ELTYPE}(particle_spacing, coordinates, zeros(ELTYPE, NDIMS, 0),
-                               zeros(ELTYPE, 0), zeros(ELTYPE, 0), zeros(ELTYPE, 0))
+            return new{ELTYPE}(
+                particle_spacing, coordinates, zeros(ELTYPE, NDIMS, 0),
+                zeros(ELTYPE, 0), zeros(ELTYPE, 0), zeros(ELTYPE, 0)
+            )
         end
 
         # SVector of coordinates to pass to functions.
@@ -112,8 +120,12 @@ struct InitialCondition{ELTYPE}
             # Assuming `velocity` is a scalar or a function
             velocity_fun = wrap_function(velocity, Val(NDIMS))
             if length(velocity_fun(coordinates_svector[1])) != NDIMS
-                throw(ArgumentError("`velocity` must be $NDIMS-dimensional " *
-                                    "for $NDIMS-dimensional `coordinates`"))
+                throw(
+                    ArgumentError(
+                        "`velocity` must be $NDIMS-dimensional " *
+                            "for $NDIMS-dimensional `coordinates`"
+                    )
+                )
             end
             velocities_svector = velocity_fun.(coordinates_svector)
             velocities = stack(velocities_svector)
@@ -124,9 +136,13 @@ struct InitialCondition{ELTYPE}
 
         if density isa AbstractVector
             if length(density) != n_particles
-                throw(ArgumentError("Expected: length(density) == size(coordinates, 2)\n" *
-                                    "Got: size(coordinates, 2) = $(size(coordinates, 2)), " *
-                                    "length(density) = $(length(density))"))
+                throw(
+                    ArgumentError(
+                        "Expected: length(density) == size(coordinates, 2)\n" *
+                            "Got: size(coordinates, 2) = $(size(coordinates, 2)), " *
+                            "length(density) = $(length(density))"
+                    )
+                )
             end
             densities = density
         else
@@ -140,9 +156,13 @@ struct InitialCondition{ELTYPE}
 
         if pressure isa AbstractVector
             if length(pressure) != n_particles
-                throw(ArgumentError("Expected: length(pressure) == size(coordinates, 2)\n" *
-                                    "Got: size(coordinates, 2) = $(size(coordinates, 2)), " *
-                                    "length(pressure) = $(length(pressure))"))
+                throw(
+                    ArgumentError(
+                        "Expected: length(pressure) == size(coordinates, 2)\n" *
+                            "Got: size(coordinates, 2) = $(size(coordinates, 2)), " *
+                            "length(pressure) = $(length(pressure))"
+                    )
+                )
             end
             pressures = pressure
         else
@@ -152,9 +172,13 @@ struct InitialCondition{ELTYPE}
 
         if mass isa AbstractVector
             if length(mass) != n_particles
-                throw(ArgumentError("Expected: length(mass) == size(coordinates, 2)\n" *
-                                    "Got: size(coordinates, 2) = $(size(coordinates, 2)), " *
-                                    "length(mass) = $(length(mass))"))
+                throw(
+                    ArgumentError(
+                        "Expected: length(mass) == size(coordinates, 2)\n" *
+                            "Got: size(coordinates, 2) = $(size(coordinates, 2)), " *
+                            "length(mass) = $(length(mass))"
+                    )
+                )
             end
             masses = mass
         elseif mass === nothing
@@ -168,8 +192,10 @@ struct InitialCondition{ELTYPE}
             masses = mass_fun.(coordinates_svector)
         end
 
-        return new{ELTYPE}(particle_spacing, coordinates, velocities, masses,
-                           densities, pressures)
+        return new{ELTYPE}(
+            particle_spacing, coordinates, velocities, masses,
+            densities, pressures
+        )
     end
 end
 
@@ -213,8 +239,10 @@ function Base.union(initial_condition::InitialCondition, initial_conditions...)
         throw(ArgumentError("all passed initial conditions must have the same particle spacing"))
     end
 
-    too_close = find_too_close_particles(ic.coordinates, initial_condition.coordinates,
-                                         0.75particle_spacing)
+    too_close = find_too_close_particles(
+        ic.coordinates, initial_condition.coordinates,
+        0.75particle_spacing
+    )
     valid_particles = setdiff(eachparticle(ic), too_close)
 
     coordinates = hcat(initial_condition.coordinates, ic.coordinates[:, valid_particles])
@@ -223,8 +251,10 @@ function Base.union(initial_condition::InitialCondition, initial_conditions...)
     density = vcat(initial_condition.density, ic.density[valid_particles])
     pressure = vcat(initial_condition.pressure, ic.pressure[valid_particles])
 
-    result = InitialCondition{ndims(ic)}(coordinates, velocity, mass, density, pressure,
-                                         particle_spacing)
+    result = InitialCondition{ndims(ic)}(
+        coordinates, velocity, mass, density, pressure,
+        particle_spacing
+    )
 
     return union(result, Base.tail(initial_conditions)...)
 end
@@ -243,8 +273,10 @@ function Base.setdiff(initial_condition::InitialCondition, initial_conditions...
         throw(ArgumentError("the initial condition in the first argument must store a particle spacing"))
     end
 
-    too_close = find_too_close_particles(initial_condition.coordinates, ic.coordinates,
-                                         0.75particle_spacing)
+    too_close = find_too_close_particles(
+        initial_condition.coordinates, ic.coordinates,
+        0.75particle_spacing
+    )
     valid_particles = setdiff(eachparticle(initial_condition), too_close)
 
     coordinates = initial_condition.coordinates[:, valid_particles]
@@ -253,8 +285,10 @@ function Base.setdiff(initial_condition::InitialCondition, initial_conditions...
     density = initial_condition.density[valid_particles]
     pressure = initial_condition.pressure[valid_particles]
 
-    result = InitialCondition{ndims(ic)}(coordinates, velocity, mass, density, pressure,
-                                         particle_spacing)
+    result = InitialCondition{ndims(ic)}(
+        coordinates, velocity, mass, density, pressure,
+        particle_spacing
+    )
 
     return setdiff(result, Base.tail(initial_conditions)...)
 end
@@ -273,8 +307,10 @@ function Base.intersect(initial_condition::InitialCondition, initial_conditions.
         throw(ArgumentError("the initial condition in the first argument must store a particle spacing"))
     end
 
-    too_close = find_too_close_particles(initial_condition.coordinates, ic.coordinates,
-                                         0.75particle_spacing)
+    too_close = find_too_close_particles(
+        initial_condition.coordinates, ic.coordinates,
+        0.75particle_spacing
+    )
 
     coordinates = initial_condition.coordinates[:, too_close]
     velocity = initial_condition.velocity[:, too_close]
@@ -282,8 +318,10 @@ function Base.intersect(initial_condition::InitialCondition, initial_conditions.
     density = initial_condition.density[too_close]
     pressure = initial_condition.pressure[too_close]
 
-    result = InitialCondition{ndims(ic)}(coordinates, velocity, mass, density, pressure,
-                                         particle_spacing)
+    result = InitialCondition{ndims(ic)}(
+        coordinates, velocity, mass, density, pressure,
+        particle_spacing
+    )
 
     return intersect(result, Base.tail(initial_conditions)...)
 end
@@ -295,12 +333,14 @@ function find_too_close_particles(coords1, coords2, max_distance)
     NDIMS = size(coords1, 1)
     result = Int[]
 
-    nhs = GridNeighborhoodSearch{NDIMS}(search_radius=max_distance,
-                                        n_points=size(coords2, 2))
+    nhs = GridNeighborhoodSearch{NDIMS}(
+        search_radius = max_distance,
+        n_points = size(coords2, 2)
+    )
     PointNeighbors.initialize!(nhs, coords1, coords2)
 
     # We are modifying the vector `result`, so this cannot be parallel
-    foreach_point_neighbor(coords1, coords2, nhs, parallel=false) do particle, _, _, _
+    foreach_point_neighbor(coords1, coords2, nhs, parallel = false) do particle, _, _, _
         if !(particle in result)
             append!(result, particle)
         end

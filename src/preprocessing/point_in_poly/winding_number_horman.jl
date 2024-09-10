@@ -14,7 +14,7 @@ struct WindingNumberHorman end
 
 # Algorithm 2 from Horman et al. (2001) "The point in polygon problem for arbitrary polygons"
 # https://doi.org/10.1016/S0925-7721(01)00012-8
-function (point_in_poly::WindingNumberHorman)(geometry, points; store_winding_number=false)
+function (point_in_poly::WindingNumberHorman)(geometry, points; store_winding_number = false)
     (; edge_vertices) = geometry
 
     inpoly = falses(size(points, 2))

@@ -60,18 +60,25 @@ end
 
 # Return the `i`-th column of the array `A` as an `SVector`.
 @inline function extract_svector(A, ::Val{NDIMS}, i) where {NDIMS}
-    return SVector(ntuple(@inline(dim->A[dim, i]), NDIMS))
+    return SVector(ntuple(@inline(dim -> A[dim, i]), NDIMS))
 end
 
 # Return `A[:, :, i]` as an `SMatrix`.
 @inline function extract_smatrix(A, system, particle)
     # Extract the matrix elements for this particle as a tuple to pass to SMatrix
     return SMatrix{ndims(system), ndims(system)}(
-                                                 # Convert linear index to Cartesian index
-                                                 ntuple(@inline(i->A[mod(i - 1, ndims(system)) + 1,
-                                                                     div(i - 1, ndims(system)) + 1,
-                                                                     particle]),
-                                                        Val(ndims(system)^2)))
+        # Convert linear index to Cartesian index
+        ntuple(
+            @inline(
+                i -> A[
+                    mod(i - 1, ndims(system)) + 1,
+                    div(i - 1, ndims(system)) + 1,
+                    particle,
+                ]
+            ),
+            Val(ndims(system)^2)
+        )
+    )
 end
 
 # Specifically get the current coordinates of a particle for all system types.
@@ -123,9 +130,11 @@ end
 end
 
 @inline function smoothing_kernel_grad(system, pos_diff, distance, particle)
-    return corrected_kernel_grad(system.smoothing_kernel, pos_diff, distance,
-                                 system.smoothing_length, system.correction, system,
-                                 particle)
+    return corrected_kernel_grad(
+        system.smoothing_kernel, pos_diff, distance,
+        system.smoothing_length, system.correction, system,
+        particle
+    )
 end
 
 # System update orders. This can be dispatched if needed.
@@ -141,7 +150,7 @@ function update_pressure!(system, v, u, v_ode, u_ode, semi, t)
     return system
 end
 
-function update_final!(system, v, u, v_ode, u_ode, semi, t; update_from_callback=false)
+function update_final!(system, v, u, v_ode, u_ode, semi, t; update_from_callback = false)
     return system
 end
 

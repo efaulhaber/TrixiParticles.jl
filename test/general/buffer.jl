@@ -1,18 +1,24 @@
-@testset verbose=true "`SystemBuffer`" begin
+@testset verbose = true "`SystemBuffer`" begin
     # Mock fluid system
     struct FluidSystemMock3 <: TrixiParticles.FluidSystem{2, Nothing} end
 
-    inflow = InFlow(; plane=([0.0, 0.0], [0.0, 1.0]), particle_spacing=0.2,
-                    open_boundary_layers=2, density=1.0, flow_direction=[1.0, 0.0])
-    system = OpenBoundarySPHSystem(inflow; sound_speed=1.0, fluid_system=FluidSystemMock3(),
-                                   reference_density=0.0, reference_pressure=0.0,
-                                   reference_velocity=[0, 0],
-                                   boundary_model=BoundaryModelLastiwka(), buffer_size=0)
-    system_buffer = OpenBoundarySPHSystem(inflow; sound_speed=1.0, buffer_size=5,
-                                          reference_density=0.0, reference_pressure=0.0,
-                                          reference_velocity=[0, 0],
-                                          boundary_model=BoundaryModelLastiwka(),
-                                          fluid_system=FluidSystemMock3())
+    inflow = InFlow(;
+        plane = ([0.0, 0.0], [0.0, 1.0]), particle_spacing = 0.2,
+        open_boundary_layers = 2, density = 1.0, flow_direction = [1.0, 0.0]
+    )
+    system = OpenBoundarySPHSystem(
+        inflow; sound_speed = 1.0, fluid_system = FluidSystemMock3(),
+        reference_density = 0.0, reference_pressure = 0.0,
+        reference_velocity = [0, 0],
+        boundary_model = BoundaryModelLastiwka(), buffer_size = 0
+    )
+    system_buffer = OpenBoundarySPHSystem(
+        inflow; sound_speed = 1.0, buffer_size = 5,
+        reference_density = 0.0, reference_pressure = 0.0,
+        reference_velocity = [0, 0],
+        boundary_model = BoundaryModelLastiwka(),
+        fluid_system = FluidSystemMock3()
+    )
 
     n_particles = nparticles(system)
 
@@ -27,25 +33,29 @@
 
         @test TrixiParticles.each_moving_particle(system_buffer) == 1:(n_particles + 1)
 
-        TrixiParticles.deactivate_particle!(system_buffer, particle_id,
-                                            ones(2, particle_id))
+        TrixiParticles.deactivate_particle!(
+            system_buffer, particle_id,
+            ones(2, particle_id)
+        )
 
         TrixiParticles.update_system_buffer!(system_buffer.buffer)
 
         @test TrixiParticles.each_moving_particle(system_buffer) == 1:n_particles
 
         particle_id = 5
-        TrixiParticles.deactivate_particle!(system_buffer, particle_id,
-                                            ones(2, particle_id))
+        TrixiParticles.deactivate_particle!(
+            system_buffer, particle_id,
+            ones(2, particle_id)
+        )
 
         TrixiParticles.update_system_buffer!(system_buffer.buffer)
 
         @test TrixiParticles.each_moving_particle(system_buffer) ==
-              setdiff(1:n_particles, particle_id)
+            setdiff(1:n_particles, particle_id)
     end
 
     @testset "Allocate Buffer" begin
-        initial_condition = rectangular_patch(0.1, (3, 3), perturbation_factor=0.0)
+        initial_condition = rectangular_patch(0.1, (3, 3), perturbation_factor = 0.0)
         buffer = TrixiParticles.SystemBuffer(nparticles(initial_condition), 7)
 
         ic_with_buffer = TrixiParticles.allocate_buffer(initial_condition, buffer)

@@ -20,18 +20,18 @@ using Polyester: Polyester, @batch
 using Printf: @printf, @sprintf
 using RecipesBase: RecipesBase, @series
 using SciMLBase: CallbackSet, DiscreteCallback, DynamicalODEProblem, u_modified!,
-                 get_tmp_cache, set_proposed_dt!, ODESolution, ODEProblem
+    get_tmp_cache, set_proposed_dt!, ODESolution, ODEProblem
 @reexport using StaticArrays: SVector
 using StaticArrays: @SMatrix, SMatrix, setindex
 using StrideArrays: PtrArray, StaticInt
 using TimerOutputs: TimerOutput, TimerOutputs, print_timer, reset_timer!
 using TrixiBase: trixi_include, @trixi_timeit, timer, timeit_debug_enabled,
-                 disable_debug_timings, enable_debug_timings
+    disable_debug_timings, enable_debug_timings
 @reexport using PointNeighbors: TrivialNeighborhoodSearch, GridNeighborhoodSearch,
-                                PrecomputedNeighborhoodSearch, PeriodicBox,
-                                ParallelUpdate, SemiParallelUpdate, SerialUpdate
+    PrecomputedNeighborhoodSearch, PeriodicBox,
+    ParallelUpdate, SemiParallelUpdate, SerialUpdate
 using PointNeighbors: PointNeighbors, foreach_point_neighbor, copy_neighborhood_search,
-                      @threaded
+    @threaded
 using WriteVTK: vtk_grid, MeshCell, VTKCellTypes, paraview_collection, vtk_save
 
 # `util.jl` depends on the `GPUSystem` type defined in `system.jl`
@@ -54,21 +54,21 @@ include("visualization/recipes_plots.jl")
 export Semidiscretization, semidiscretize, restart_with!
 export InitialCondition
 export WeaklyCompressibleSPHSystem, EntropicallyDampedSPHSystem, TotalLagrangianSPHSystem,
-       BoundarySPHSystem, DEMSystem, BoundaryDEMSystem, OpenBoundarySPHSystem, InFlow,
-       OutFlow
+    BoundarySPHSystem, DEMSystem, BoundaryDEMSystem, OpenBoundarySPHSystem, InFlow,
+    OutFlow
 export InfoCallback, SolutionSavingCallback, DensityReinitializationCallback,
-       PostprocessCallback, StepsizeCallback, UpdateCallback
+    PostprocessCallback, StepsizeCallback, UpdateCallback
 export ContinuityDensity, SummationDensity
 export PenaltyForceGanzenmueller
 export SchoenbergCubicSplineKernel, SchoenbergQuarticSplineKernel,
-       SchoenbergQuinticSplineKernel, GaussianKernel, WendlandC2Kernel, WendlandC4Kernel,
-       WendlandC6Kernel, SpikyKernel, Poly6Kernel
+    SchoenbergQuinticSplineKernel, GaussianKernel, WendlandC2Kernel, WendlandC4Kernel,
+    WendlandC6Kernel, SpikyKernel, Poly6Kernel
 export StateEquationCole
 export ArtificialViscosityMonaghan, ViscosityAdami, ViscosityMorris
 export DensityDiffusion, DensityDiffusionMolteniColagrossi, DensityDiffusionFerrari,
-       DensityDiffusionAntuono
+    DensityDiffusionAntuono
 export BoundaryModelMonaghanKajtar, BoundaryModelDummyParticles, AdamiPressureExtrapolation,
-       PressureMirroring, PressureZeroing, BoundaryModelLastiwka
+    PressureMirroring, PressureZeroing, BoundaryModelLastiwka
 export BoundaryMovement
 export examples_dir, validation_dir, trixi_include
 export trixi2vtk
@@ -77,12 +77,12 @@ export WindingNumberHorman, WindingNumberJacobson
 export VoxelSphere, RoundSphere, reset_wall!, extrude_geometry, load_geometry
 export SourceTermDamping
 export ShepardKernelCorrection, KernelCorrection, AkinciFreeSurfaceCorrection,
-       GradientCorrection, BlendedGradientCorrection, MixedKernelGradientCorrection
+    GradientCorrection, BlendedGradientCorrection, MixedKernelGradientCorrection
 export nparticles
 export kinetic_energy, total_mass, max_pressure, min_pressure, avg_pressure,
-       max_density, min_density, avg_density
+    max_density, min_density, avg_density
 export interpolate_line, interpolate_point, interpolate_plane_3d, interpolate_plane_2d,
-       interpolate_plane_2d_vtk
+    interpolate_plane_2d_vtk
 export SurfaceTensionAkinci, CohesionForceAkinci
 
 end # module

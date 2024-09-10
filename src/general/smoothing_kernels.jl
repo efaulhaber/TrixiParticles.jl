@@ -8,39 +8,53 @@ abstract type SmoothingKernel{NDIMS} end
     return kernel_deriv(kernel, distance, h) / distance * pos_diff
 end
 
-@inline function corrected_kernel_grad(kernel, pos_diff, distance, h, correction, system,
-                                       particle)
+@inline function corrected_kernel_grad(
+        kernel, pos_diff, distance, h, correction, system,
+        particle
+    )
     return kernel_grad(kernel, pos_diff, distance, h)
 end
 
-@inline function corrected_kernel_grad(kernel_, pos_diff, distance, h, ::KernelCorrection,
-                                       system, particle)
-    return (kernel_grad(kernel_, pos_diff, distance, h) .-
-            kernel(kernel_, distance, h) * dw_gamma(system, particle)) /
-           kernel_correction_coefficient(system, particle)
+@inline function corrected_kernel_grad(
+        kernel_, pos_diff, distance, h, ::KernelCorrection,
+        system, particle
+    )
+    return (
+        kernel_grad(kernel_, pos_diff, distance, h) .-
+            kernel(kernel_, distance, h) * dw_gamma(system, particle)
+    ) /
+        kernel_correction_coefficient(system, particle)
 end
 
-@inline function corrected_kernel_grad(kernel, pos_diff, distance, h,
-                                       corr::BlendedGradientCorrection, system,
-                                       particle)
+@inline function corrected_kernel_grad(
+        kernel, pos_diff, distance, h,
+        corr::BlendedGradientCorrection, system,
+        particle
+    )
     (; blending_factor) = corr
 
     grad = kernel_grad(kernel, pos_diff, distance, h)
     return (1 - blending_factor) * grad +
-           blending_factor * correction_matrix(system, particle) * grad
+        blending_factor * correction_matrix(system, particle) * grad
 end
 
-@inline function corrected_kernel_grad(kernel, pos_diff, distance, h,
-                                       ::GradientCorrection, system, particle)
+@inline function corrected_kernel_grad(
+        kernel, pos_diff, distance, h,
+        ::GradientCorrection, system, particle
+    )
     grad = kernel_grad(kernel, pos_diff, distance, h)
     return correction_matrix(system, particle) * grad
 end
 
-@inline function corrected_kernel_grad(kernel, pos_diff, distance, h,
-                                       ::MixedKernelGradientCorrection, system,
-                                       particle)
-    grad = corrected_kernel_grad(kernel, pos_diff, distance, h, KernelCorrection(),
-                                 system, particle)
+@inline function corrected_kernel_grad(
+        kernel, pos_diff, distance, h,
+        ::MixedKernelGradientCorrection, system,
+        particle
+    )
+    grad = corrected_kernel_grad(
+        kernel, pos_diff, distance, h, KernelCorrection(),
+        system, particle
+    )
     return correction_matrix(system, particle) * grad
 end
 
@@ -88,9 +102,11 @@ end
     q = r * inner_deriv
 
     # Zero out result if q >= 3
-    result = ifelse(q < 3,
-                    -2 * q * normalization_factor(kernel, h) * exp(-q^2) * inner_deriv,
-                    zero(q))
+    result = ifelse(
+        q < 3,
+        -2 * q * normalization_factor(kernel, h) * exp(-q^2) * inner_deriv,
+        zero(q)
+    )
 
     return result
 end
@@ -167,8 +183,10 @@ end
     result = result + 3 * (q < 1) * (1 - q)^2
 
     # Zero out result if q >= 2
-    result = ifelse(q < 2, normalization_factor(kernel, h) * result * inner_deriv,
-                    zero(result))
+    result = ifelse(
+        q < 2, normalization_factor(kernel, h) * result * inner_deriv,
+        zero(result)
+    )
 
     return result
 end
@@ -252,8 +270,10 @@ struct SchoenbergQuarticSplineKernel{NDIMS} <: SmoothingKernel{NDIMS} end
     return result
 end
 
-@fastpow @muladd @inline function kernel_deriv(kernel::SchoenbergQuarticSplineKernel,
-                                               r::Real, h)
+@fastpow @muladd @inline function kernel_deriv(
+        kernel::SchoenbergQuarticSplineKernel,
+        r::Real, h
+    )
     inner_deriv = 1 / h
     q = r * inner_deriv
     q5_2 = 5 / 2 - q
@@ -266,8 +286,10 @@ end
     result = result - 40 * (q < 1 / 2) * q1_2^3
 
     # Zero out result if q >= 5/2
-    result = ifelse(q < 5 / 2, normalization_factor(kernel, h) * result * inner_deriv,
-                    zero(result))
+    result = ifelse(
+        q < 5 / 2, normalization_factor(kernel, h) * result * inner_deriv,
+        zero(result)
+    )
 
     return result
 end
@@ -342,8 +364,10 @@ struct SchoenbergQuinticSplineKernel{NDIMS} <: SmoothingKernel{NDIMS} end
     return result
 end
 
-@fastpow @muladd @inline function kernel_deriv(kernel::SchoenbergQuinticSplineKernel,
-                                               r::Real, h)
+@fastpow @muladd @inline function kernel_deriv(
+        kernel::SchoenbergQuinticSplineKernel,
+        r::Real, h
+    )
     inner_deriv = 1 / h
     q = r * inner_deriv
     q3 = (3 - q)
@@ -356,8 +380,10 @@ end
     result = result - 75 * (q < 1) * q1^4
 
     # Zero out result if q >= 3
-    result = ifelse(q < 3, normalization_factor(kernel, h) * result * inner_deriv,
-                    zero(result))
+    result = ifelse(
+        q < 3, normalization_factor(kernel, h) * result * inner_deriv,
+        zero(result)
+    )
 
     return result
 end
@@ -440,8 +466,10 @@ end
     result = result + q1_4 * 4
 
     # Zero out result if q >= 1
-    result = ifelse(q < 1,
-                    normalization_factor(kernel, h) * result * inner_deriv, zero(q))
+    result = ifelse(
+        q < 1,
+        normalization_factor(kernel, h) * result * inner_deriv, zero(q)
+    )
 
     return result
 end
@@ -512,8 +540,10 @@ end
     derivative = term1 - term2
 
     # Zero out result if q >= 1
-    result = ifelse(q < 1, normalization_factor(kernel, h) * derivative / h,
-                    zero(derivative))
+    result = ifelse(
+        q < 1, normalization_factor(kernel, h) * derivative / h,
+        zero(derivative)
+    )
 
     return result
 end
@@ -583,8 +613,10 @@ end
     derivative = term1 + term2
 
     # Zero out result if q >= 1
-    result = ifelse(q < 1, normalization_factor(kernel, h) * derivative / h,
-                    zero(derivative))
+    result = ifelse(
+        q < 1, normalization_factor(kernel, h) * derivative / h,
+        zero(derivative)
+    )
 
     return result
 end
@@ -651,8 +683,10 @@ end
     result = -6 * q * (1 - q^2)^2
 
     # Zero out result if q >= 1
-    result = ifelse(q < 1,
-                    result * normalization_factor(kernel, h) * inner_deriv, zero(q))
+    result = ifelse(
+        q < 1,
+        result * normalization_factor(kernel, h) * inner_deriv, zero(q)
+    )
     return result
 end
 

@@ -1,16 +1,22 @@
 # Solution type when running a simulation with TrixiParticles.jl and OrdinaryDiffEq.jl
-const TrixiParticlesODESolution = ODESolution{<:Any, <:Any, <:Any, <:Any, <:Any, <:Any,
-                                              <:Any,
-                                              <:ODEProblem{<:Any, <:Any, <:Any,
-                                                           <:Semidiscretization}}
+const TrixiParticlesODESolution = ODESolution{
+    <:Any, <:Any, <:Any, <:Any, <:Any, <:Any,
+    <:Any,
+    <:ODEProblem{
+        <:Any, <:Any, <:Any,
+        <:Semidiscretization,
+    },
+}
 
 RecipesBase.@recipe function f(sol::TrixiParticlesODESolution)
     # Redirect everything to the recipe
     return sol.u[end].x..., sol.prob.p
 end
 
-RecipesBase.@recipe function f(v_ode, u_ode, semi::Semidiscretization;
-                               size=(600, 400)) # Default size
+RecipesBase.@recipe function f(
+        v_ode, u_ode, semi::Semidiscretization;
+        size = (600, 400)
+    ) # Default size
     systems_data = map(semi.systems) do system
         u = wrap_u(u_ode, system, semi)
         coordinates = active_coordinates(u, system)
@@ -22,11 +28,13 @@ RecipesBase.@recipe function f(v_ode, u_ode, semi::Semidiscretization;
             particle_spacing = 0.0
         end
 
-        x_min, y_min = minimum(coordinates, dims=2) .- 0.5particle_spacing
-        x_max, y_max = maximum(coordinates, dims=2) .+ 0.5particle_spacing
+        x_min, y_min = minimum(coordinates, dims = 2) .- 0.5particle_spacing
+        x_max, y_max = maximum(coordinates, dims = 2) .+ 0.5particle_spacing
 
-        return (; x, y, x_min, x_max, y_min, y_max, particle_spacing,
-                label=timer_name(system))
+        return (;
+            x, y, x_min, x_max, y_min, y_max, particle_spacing,
+            label = timer_name(system),
+        )
     end
 
     return (semi, systems_data...)
@@ -43,20 +51,24 @@ RecipesBase.@recipe function f((initial_conditions::InitialCondition)...)
             particle_spacing = 0.0
         end
 
-        x_min, y_min = minimum(ic.coordinates, dims=2) .- 0.5particle_spacing
-        x_max, y_max = maximum(ic.coordinates, dims=2) .+ 0.5particle_spacing
+        x_min, y_min = minimum(ic.coordinates, dims = 2) .- 0.5particle_spacing
+        x_max, y_max = maximum(ic.coordinates, dims = 2) .+ 0.5particle_spacing
 
         idx += 1
 
-        return (; x, y, x_min, x_max, y_min, y_max, particle_spacing,
-                label="initial condition " * "$idx")
+        return (;
+            x, y, x_min, x_max, y_min, y_max, particle_spacing,
+            label = "initial condition " * "$idx",
+        )
     end
 
     return (first(initial_conditions), ics...)
 end
 
-RecipesBase.@recipe function f(::Union{InitialCondition, Semidiscretization},
-                               data...; zcolor=nothing, size=(600, 400), colorbar_title="")
+RecipesBase.@recipe function f(
+        ::Union{InitialCondition, Semidiscretization},
+        data...; zcolor = nothing, size = (600, 400), colorbar_title = ""
+    )
     x_min = minimum(obj.x_min for obj in data)
     x_max = maximum(obj.x_max for obj in data)
     y_min = minimum(obj.y_min for obj in data)

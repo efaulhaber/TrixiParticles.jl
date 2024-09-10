@@ -72,15 +72,17 @@ inflow = InFlow(; plane=plane_points, particle_spacing=0.1, flow_direction, dens
     This is an experimental feature and may change in any future releases.
 """
 struct InFlow{NDIMS, IC, S, ZO, ZW, FD}
-    initial_condition :: IC
-    spanning_set      :: S
-    zone_origin       :: ZO
-    zone_width        :: ZW
-    flow_direction    :: FD
+    initial_condition::IC
+    spanning_set::S
+    zone_origin::ZO
+    zone_width::ZW
+    flow_direction::FD
 
-    function InFlow(; plane, flow_direction, density, particle_spacing,
-                    initial_condition=nothing, extrude_geometry=nothing,
-                    open_boundary_layers::Integer)
+    function InFlow(;
+            plane, flow_direction, density, particle_spacing,
+            initial_condition = nothing, extrude_geometry = nothing,
+            open_boundary_layers::Integer
+        )
         if open_boundary_layers <= 0
             throw(ArgumentError("`open_boundary_layers` must be positive and greater than zero"))
         end
@@ -90,16 +92,20 @@ struct InFlow{NDIMS, IC, S, ZO, ZW, FD}
 
         # Sample particles in boundary zone
         if isnothing(initial_condition) && isnothing(extrude_geometry)
-            initial_condition = TrixiParticles.extrude_geometry(plane; particle_spacing,
-                                                                density,
-                                                                direction=-flow_direction_,
-                                                                n_extrude=open_boundary_layers)
+            initial_condition = TrixiParticles.extrude_geometry(
+                plane; particle_spacing,
+                density,
+                direction = -flow_direction_,
+                n_extrude = open_boundary_layers
+            )
         elseif !isnothing(extrude_geometry)
-            initial_condition = TrixiParticles.extrude_geometry(extrude_geometry;
-                                                                particle_spacing,
-                                                                density,
-                                                                direction=-flow_direction_,
-                                                                n_extrude=open_boundary_layers)
+            initial_condition = TrixiParticles.extrude_geometry(
+                extrude_geometry;
+                particle_spacing,
+                density,
+                direction = -flow_direction_,
+                n_extrude = open_boundary_layers
+            )
         end
 
         NDIMS = ndims(initial_condition)
@@ -114,7 +120,7 @@ struct InFlow{NDIMS, IC, S, ZO, ZW, FD}
         # The normal vector must point in upstream direction for an inflow boundary.
         dot_ = dot(normalize(spanning_set[:, 1]), flow_direction_)
 
-        if !isapprox(abs(dot_), 1.0, atol=1e-7)
+        if !isapprox(abs(dot_), 1.0, atol = 1.0e-7)
             throw(ArgumentError("`flow_direction` is not normal to inflow plane"))
         else
             # Flip the normal vector to point in the opposite direction of `flow_direction`
@@ -127,10 +133,14 @@ struct InFlow{NDIMS, IC, S, ZO, ZW, FD}
         # This check is only necessary when `initial_condition` or `extrude_geometry` are passed.
         ic = remove_outside_particles(initial_condition, spanning_set_, zone_origin)
 
-        return new{NDIMS, typeof(ic), typeof(spanning_set_), typeof(zone_origin),
-                   typeof(zone_width),
-                   typeof(flow_direction_)}(ic, spanning_set_, zone_origin, zone_width,
-                                            flow_direction_)
+        return new{
+            NDIMS, typeof(ic), typeof(spanning_set_), typeof(zone_origin),
+            typeof(zone_width),
+            typeof(flow_direction_),
+        }(
+            ic, spanning_set_, zone_origin, zone_width,
+            flow_direction_
+        )
     end
 end
 
@@ -208,15 +218,17 @@ outflow = OutFlow(; plane=plane_points, particle_spacing=0.1, flow_direction, de
     This is an experimental feature and may change in any future releases.
 """
 struct OutFlow{NDIMS, IC, S, ZO, ZW, FD}
-    initial_condition :: IC
-    spanning_set      :: S
-    zone_origin       :: ZO
-    zone_width        :: ZW
-    flow_direction    :: FD
+    initial_condition::IC
+    spanning_set::S
+    zone_origin::ZO
+    zone_width::ZW
+    flow_direction::FD
 
-    function OutFlow(; plane, flow_direction, density, particle_spacing,
-                     initial_condition=nothing, extrude_geometry=nothing,
-                     open_boundary_layers::Integer)
+    function OutFlow(;
+            plane, flow_direction, density, particle_spacing,
+            initial_condition = nothing, extrude_geometry = nothing,
+            open_boundary_layers::Integer
+        )
         if open_boundary_layers <= 0
             throw(ArgumentError("`open_boundary_layers` must be positive and greater than zero"))
         end
@@ -226,15 +238,19 @@ struct OutFlow{NDIMS, IC, S, ZO, ZW, FD}
 
         # Sample particles in boundary zone
         if isnothing(initial_condition) && isnothing(extrude_geometry)
-            initial_condition = TrixiParticles.extrude_geometry(plane; particle_spacing,
-                                                                density,
-                                                                direction=flow_direction_,
-                                                                n_extrude=open_boundary_layers)
+            initial_condition = TrixiParticles.extrude_geometry(
+                plane; particle_spacing,
+                density,
+                direction = flow_direction_,
+                n_extrude = open_boundary_layers
+            )
         elseif !isnothing(extrude_geometry)
-            initial_condition = TrixiParticles.extrude_geometry(extrude_geometry;
-                                                                particle_spacing, density,
-                                                                direction=-flow_direction_,
-                                                                n_extrude=open_boundary_layers)
+            initial_condition = TrixiParticles.extrude_geometry(
+                extrude_geometry;
+                particle_spacing, density,
+                direction = -flow_direction_,
+                n_extrude = open_boundary_layers
+            )
         end
 
         NDIMS = ndims(initial_condition)
@@ -249,7 +265,7 @@ struct OutFlow{NDIMS, IC, S, ZO, ZW, FD}
         # The normal vector must point in downstream direction for an outflow boundary.
         dot_ = dot(normalize(spanning_set[:, 1]), flow_direction_)
 
-        if !isapprox(abs(dot_), 1.0, atol=1e-7)
+        if !isapprox(abs(dot_), 1.0, atol = 1.0e-7)
             throw(ArgumentError("`flow_direction` is not normal to outflow plane"))
         else
             # Flip the normal vector to point in `flow_direction`
@@ -262,10 +278,14 @@ struct OutFlow{NDIMS, IC, S, ZO, ZW, FD}
         # This check is only necessary when `initial_condition` or `extrude_geometry` are passed.
         ic = remove_outside_particles(initial_condition, spanning_set_, zone_origin)
 
-        return new{NDIMS, typeof(ic), typeof(spanning_set_), typeof(zone_origin),
-                   typeof(zone_width),
-                   typeof(flow_direction_)}(ic, spanning_set_, zone_origin, zone_width,
-                                            flow_direction_)
+        return new{
+            NDIMS, typeof(ic), typeof(spanning_set_), typeof(zone_origin),
+            typeof(zone_width),
+            typeof(flow_direction_),
+        }(
+            ic, spanning_set_, zone_origin, zone_width,
+            flow_direction_
+        )
     end
 end
 
@@ -289,7 +309,7 @@ function spanning_vectors(plane_points::NTuple{3}, zone_width)
     edge1 = plane_points[2] - plane_points[1]
     edge2 = plane_points[3] - plane_points[1]
 
-    if !isapprox(dot(edge1, edge2), 0.0, atol=1e-7)
+    if !isapprox(dot(edge1, edge2), 0.0, atol = 1.0e-7)
         throw(ArgumentError("the vectors `AB` and `AC` for the provided points `A`, `B`, `C` must be orthogonal"))
     end
 
@@ -306,8 +326,10 @@ end
     return is_in_boundary_zone(spanning_set, particle_position)
 end
 
-@inline function is_in_boundary_zone(spanning_set::AbstractArray,
-                                     particle_position::SVector{NDIMS}) where {NDIMS}
+@inline function is_in_boundary_zone(
+        spanning_set::AbstractArray,
+        particle_position::SVector{NDIMS}
+    ) where {NDIMS}
     for dim in 1:NDIMS
         span_dim = spanning_set[dim]
         # Checks whether the projection of the particle position
@@ -335,6 +357,8 @@ function remove_outside_particles(initial_condition, spanning_set, zone_origin)
         in_zone[particle] = is_in_boundary_zone(spanning_set, particle_position)
     end
 
-    return InitialCondition(; coordinates=coordinates[:, in_zone], density=first(density),
-                            particle_spacing)
+    return InitialCondition(;
+        coordinates = coordinates[:, in_zone], density = first(density),
+        particle_spacing
+    )
 end

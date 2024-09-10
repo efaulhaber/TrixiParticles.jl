@@ -81,19 +81,23 @@ SphereShape(0.1, 0.5, (0.2, 0.4, 0.3), 1000.0, sphere_type=RoundSphere())
 InitialCondition{Float64}(0.1, [0.25 0.17500000000000002 … 0.269548322038589 0.2; 0.4 0.44330127018922194 … 0.3127891626126164 0.4; 0.3 0.3 … -0.13595561786013038 -0.15000000000000002], [0.0 0.0 … 0.0 0.0; 0.0 0.0 … 0.0 0.0; 0.0 0.0 … 0.0 0.0], [1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002  …  1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002, 1.0000000000000002], [1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0  …  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 ```
 """
-function SphereShape(particle_spacing, radius, center_position, density;
-                     sphere_type=VoxelSphere(), n_layers=-1, layer_outwards=false,
-                     cutout_min=(0.0, 0.0), cutout_max=(0.0, 0.0), tlsph=false,
-                     velocity=zeros(length(center_position)), mass=nothing, pressure=0.0)
+function SphereShape(
+        particle_spacing, radius, center_position, density;
+        sphere_type = VoxelSphere(), n_layers = -1, layer_outwards = false,
+        cutout_min = (0.0, 0.0), cutout_max = (0.0, 0.0), tlsph = false,
+        velocity = zeros(length(center_position)), mass = nothing, pressure = 0.0
+    )
     if particle_spacing < eps()
         throw(ArgumentError("`particle_spacing` needs to be positive and larger than $(eps())"))
     end
 
     NDIMS = length(center_position)
 
-    coordinates = sphere_shape_coords(sphere_type, particle_spacing, radius,
-                                      SVector{NDIMS}(center_position),
-                                      n_layers, layer_outwards, tlsph)
+    coordinates = sphere_shape_coords(
+        sphere_type, particle_spacing, radius,
+        SVector{NDIMS}(center_position),
+        n_layers, layer_outwards, tlsph
+    )
 
     # Convert tuples to vectors
     cutout_min_ = collect(cutout_min)
@@ -104,14 +108,16 @@ function SphereShape(particle_spacing, radius, center_position, density;
     has_cutout = norm(cutout_max_ - cutout_min_) > eps()
     function in_cutout(particle)
         return has_cutout &&
-               all(cutout_min_ .<= view(coordinates, :, particle) .<= cutout_max_)
+            all(cutout_min_ .<= view(coordinates, :, particle) .<= cutout_max_)
     end
 
     particles_not_in_cutout = map(!in_cutout, axes(coordinates, 2))
     coordinates = coordinates[:, particles_not_in_cutout]
 
-    return InitialCondition(; coordinates, velocity, mass, density, pressure,
-                            particle_spacing)
+    return InitialCondition(;
+        coordinates, velocity, mass, density, pressure,
+        particle_spacing
+    )
 end
 
 """
@@ -151,7 +157,7 @@ The resulting ball will be perfectly round, but will not have a regular inner st
 struct RoundSphere{AR}
     angle_range::AR
 
-    function RoundSphere(; start_angle=0.0, end_angle=2pi)
+    function RoundSphere(; start_angle = 0.0, end_angle = 2pi)
         if start_angle > end_angle
             throw(ArgumentError("`end_angle` should be greater than `start_angle`"))
         end
@@ -162,8 +168,10 @@ struct RoundSphere{AR}
     end
 end
 
-function sphere_shape_coords(::VoxelSphere, particle_spacing, radius, center_position,
-                             n_layers, layer_outwards, tlsph)
+function sphere_shape_coords(
+        ::VoxelSphere, particle_spacing, radius, center_position,
+        n_layers, layer_outwards, tlsph
+    )
     if n_layers > 0
         if layer_outwards
             inner_radius = radius
@@ -218,8 +226,10 @@ function sphere_shape_coords(::VoxelSphere, particle_spacing, radius, center_pos
     return reinterpret(reshape, ELTYPE, coords)
 end
 
-function sphere_shape_coords(sphere::RoundSphere, particle_spacing, radius, center,
-                             n_layers, layer_outwards, tlsph)
+function sphere_shape_coords(
+        sphere::RoundSphere, particle_spacing, radius, center,
+        n_layers, layer_outwards, tlsph
+    )
     if n_layers > 0
         if layer_outwards
             inner_radius = radius
@@ -252,8 +262,10 @@ function sphere_shape_coords(sphere::RoundSphere, particle_spacing, radius, cent
     coords = zeros(length(center), 0)
 
     for layer in 0:(n_layers - 1)
-        sphere_coords = round_sphere(sphere, particle_spacing,
-                                     inner_radius + layer * particle_spacing, center)
+        sphere_coords = round_sphere(
+            sphere, particle_spacing,
+            inner_radius + layer * particle_spacing, center
+        )
         coords = hcat(coords, sphere_coords)
     end
 
@@ -309,20 +321,26 @@ function round_sphere(sphere, particle_spacing, radius, center::SVector{3})
     if n_particles < 5
         if n_particles == 4
             # Return tetrahedron
-            return [+1 -1 -1 +1;
-                    +1 -1 +1 -1;
-                    +1 +1 -1 -1] * radius / sqrt(3) .+ center
+            return [
+                +1 -1 -1 +1;
+                +1 -1 +1 -1;
+                +1 +1 -1 -1
+            ] * radius / sqrt(3) .+ center
         elseif n_particles == 3
             # Return 2D triangle
             y = sin(2pi / 3)
-            return [1 -0.5 -0.5;
-                    0 y -y;
-                    0 0 0] * radius .+ center
+            return [
+                1 -0.5 -0.5;
+                0 y -y;
+                0 0 0
+            ] * radius .+ center
         elseif n_particles == 2
             # Return two particles
-            return [-1 1;
-                    0 0;
-                    0 0] * radius .+ center
+            return [
+                -1 1;
+                0 0;
+                0 0
+            ] * radius .+ center
         else
             return collect(reshape(center, (3, 1)))
         end
@@ -361,9 +379,13 @@ function round_sphere(sphere, particle_spacing, radius, center::SVector{3})
     n_collars = max(1, round(Int, (pi - 2polar_radius) / collar_angle))
     fitting_collar_angle = (pi - 2polar_radius) / n_collars
 
-    collar_area = [2pi * (cos(polar_radius + (j - 2) * fitting_collar_angle) -
-                    cos(polar_radius + (j - 1) * fitting_collar_angle))
-                   for j in 2:(n_collars + 1)]
+    collar_area = [
+        2pi * (
+                cos(polar_radius + (j - 2) * fitting_collar_angle) -
+                cos(polar_radius + (j - 1) * fitting_collar_angle)
+            )
+            for j in 2:(n_collars + 1)
+    ]
 
     # Here, we count the poles as well
     ideal_number_cells = collar_area / collar_cell_area
@@ -379,13 +401,19 @@ function round_sphere(sphere, particle_spacing, radius, center::SVector{3})
         a[j] = a[j - 1] + ideal_number_cells[j] - actual_number_cells[j]
     end
 
-    collar_start_latitude = [theta(polar_area +
-                                   sum(actual_number_cells[2:(j - 1)]) * collar_cell_area)
-                             for j in 2:(n_collars + 2)]
+    collar_start_latitude = [
+        theta(
+                polar_area +
+                sum(actual_number_cells[2:(j - 1)]) * collar_cell_area
+            )
+            for j in 2:(n_collars + 2)
+    ]
 
     # Put particles in the center of each collar
-    collar_latitude = [0.5 * (collar_start_latitude[i] + collar_start_latitude[i + 1])
-                       for i in 1:n_collars]
+    collar_latitude = [
+        0.5 * (collar_start_latitude[i] + collar_start_latitude[i + 1])
+            for i in 1:n_collars
+    ]
 
     # Put the first and last particle on the pole
     pushfirst!(collar_latitude, 0.0)
@@ -406,10 +434,14 @@ function round_sphere(sphere, particle_spacing, radius, center::SVector{3})
             circle_spacing = 1.0
         end
 
-        circle_coords_2d = round_sphere(sphere, circle_spacing, circle_radius,
-                                        SVector(center[1], center[2]))
-        circle_coords_3d = vcat(circle_coords_2d,
-                                center[3] .+ z * ones(1, size(circle_coords_2d, 2)))
+        circle_coords_2d = round_sphere(
+            sphere, circle_spacing, circle_radius,
+            SVector(center[1], center[2])
+        )
+        circle_coords_3d = vcat(
+            circle_coords_2d,
+            center[3] .+ z * ones(1, size(circle_coords_2d, 2))
+        )
 
         particle_coords = hcat(particle_coords, circle_coords_3d)
     end

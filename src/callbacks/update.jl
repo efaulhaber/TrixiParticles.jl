@@ -14,7 +14,7 @@ in intervals of `dt` in terms of integration time by adding additional `tstops`
 - `dt`: Update quantities in regular intervals of `dt` in terms of integration time
         by adding additional `tstops` (note that this may change the solution).
 """
-function UpdateCallback(; interval::Integer=-1, dt=0.0)
+function UpdateCallback(; interval::Integer = -1, dt = 0.0)
     if dt > 0 && interval !== -1
         throw(ArgumentError("Setting both interval and dt is not supported!"))
     end
@@ -32,14 +32,18 @@ function UpdateCallback(; interval::Integer=-1, dt=0.0)
 
     if dt > 0
         # Add a `tstop` every `dt`, and save the final solution.
-        return PeriodicCallback(update_callback!, dt,
-                                initialize=initial_update!,
-                                save_positions=(false, false))
+        return PeriodicCallback(
+            update_callback!, dt,
+            initialize = initial_update!,
+            save_positions = (false, false)
+        )
     else
         # The first one is the `condition`, the second the `affect!`
-        return DiscreteCallback(update_callback!, update_callback!,
-                                initialize=initial_update!,
-                                save_positions=(false, false))
+        return DiscreteCallback(
+            update_callback!, update_callback!,
+            initialize = initial_update!,
+            save_positions = (false, false)
+        )
     end
 end
 
@@ -78,7 +82,7 @@ function (update_callback!::UpdateCallback)(integrator)
 
     # Update quantities that are stored in the systems. These quantities (e.g. pressure)
     # still have the values from the last stage of the previous step if not updated here.
-    update_systems_and_nhs(v_ode, u_ode, semi, t; update_from_callback=true)
+    update_systems_and_nhs(v_ode, u_ode, semi, t; update_from_callback = true)
 
     # Other updates might be added here later (e.g. Transport Velocity Formulation).
     @trixi_timeit timer() "update open boundary" foreach_system(semi) do system
@@ -96,15 +100,21 @@ function Base.show(io::IO, cb::DiscreteCallback{<:Any, <:UpdateCallback})
     print(io, "UpdateCallback(interval=", cb.affect!.interval, ")")
 end
 
-function Base.show(io::IO,
-                   cb::DiscreteCallback{<:Any,
-                                        <:PeriodicCallbackAffect{<:UpdateCallback}})
+function Base.show(
+        io::IO,
+        cb::DiscreteCallback{
+            <:Any,
+            <:PeriodicCallbackAffect{<:UpdateCallback},
+        }
+    )
     @nospecialize cb # reduce precompilation time
     print(io, "UpdateCallback(dt=", cb.affect!.affect!.interval, ")")
 end
 
-function Base.show(io::IO, ::MIME"text/plain",
-                   cb::DiscreteCallback{<:Any, <:UpdateCallback})
+function Base.show(
+        io::IO, ::MIME"text/plain",
+        cb::DiscreteCallback{<:Any, <:UpdateCallback}
+    )
     @nospecialize cb # reduce precompilation time
 
     if get(io, :compact, false)
@@ -118,9 +128,13 @@ function Base.show(io::IO, ::MIME"text/plain",
     end
 end
 
-function Base.show(io::IO, ::MIME"text/plain",
-                   cb::DiscreteCallback{<:Any,
-                                        <:PeriodicCallbackAffect{<:UpdateCallback}})
+function Base.show(
+        io::IO, ::MIME"text/plain",
+        cb::DiscreteCallback{
+            <:Any,
+            <:PeriodicCallbackAffect{<:UpdateCallback},
+        }
+    )
     @nospecialize cb # reduce precompilation time
 
     if get(io, :compact, false)

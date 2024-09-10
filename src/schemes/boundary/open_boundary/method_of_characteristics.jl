@@ -8,10 +8,14 @@ about the method see [description below](@ref method_of_characteristics).
 """
 struct BoundaryModelLastiwka end
 
-@inline function update_quantities!(system, boundary_model::BoundaryModelLastiwka,
-                                    v, u, v_ode, u_ode, semi, t)
-    (; density, pressure, cache, flow_direction, sound_speed,
-    reference_velocity, reference_pressure, reference_density) = system
+@inline function update_quantities!(
+        system, boundary_model::BoundaryModelLastiwka,
+        v, u, v_ode, u_ode, semi, t
+    )
+    (;
+        density, pressure, cache, flow_direction, sound_speed,
+        reference_velocity, reference_pressure, reference_density,
+    ) = system
 
     # Update quantities based on the characteristic variables
     @threaded system for particle in each_moving_particle(system)
@@ -21,17 +25,23 @@ struct BoundaryModelLastiwka end
         J2 = cache.characteristics[2, particle]
         J3 = cache.characteristics[3, particle]
 
-        rho_ref = reference_value(reference_density, density[particle], system, particle,
-                                  particle_position, t)
+        rho_ref = reference_value(
+            reference_density, density[particle], system, particle,
+            particle_position, t
+        )
         density[particle] = rho_ref + ((-J1 + 0.5 * (J2 + J3)) / sound_speed^2)
 
-        p_ref = reference_value(reference_pressure, pressure[particle], system, particle,
-                                particle_position, t)
+        p_ref = reference_value(
+            reference_pressure, pressure[particle], system, particle,
+            particle_position, t
+        )
         pressure[particle] = p_ref + 0.5 * (J2 + J3)
 
         v_current = current_velocity(v, system, particle)
-        v_ref = reference_value(reference_velocity, v_current, system, particle,
-                                particle_position, t)
+        v_ref = reference_value(
+            reference_velocity, v_current, system, particle,
+            particle_position, t
+        )
         rho = density[particle]
         v_ = v_ref + ((J2 - J3) / (2 * sound_speed * rho)) * flow_direction
 
@@ -110,10 +120,14 @@ function evaluate_characteristics!(system, v, u, v_ode, u_ode, semi, t)
     return system
 end
 
-function evaluate_characteristics!(system, neighbor_system::FluidSystem,
-                                   v, u, v_ode, u_ode, semi, t)
-    (; volume, sound_speed, cache, flow_direction, density, pressure,
-    reference_velocity, reference_pressure, reference_density) = system
+function evaluate_characteristics!(
+        system, neighbor_system::FluidSystem,
+        v, u, v_ode, u_ode, semi, t
+    )
+    (;
+        volume, sound_speed, cache, flow_direction, density, pressure,
+        reference_velocity, reference_pressure, reference_density,
+    ) = system
     (; characteristics) = cache
 
     v_neighbor_system = wrap_v(v_ode, neighbor_system, semi)
@@ -125,22 +139,30 @@ function evaluate_characteristics!(system, neighbor_system::FluidSystem,
     neighbor_coords = current_coordinates(u_neighbor_system, neighbor_system)
 
     # Loop over all fluid neighbors within the kernel cutoff
-    foreach_point_neighbor(system, neighbor_system, system_coords, neighbor_coords,
-                           nhs) do particle, neighbor, pos_diff, distance
+    foreach_point_neighbor(
+        system, neighbor_system, system_coords, neighbor_coords,
+        nhs
+    ) do particle, neighbor, pos_diff, distance
         neighbor_position = current_coords(u_neighbor_system, neighbor_system, neighbor)
 
         # Determine current and prescribed quantities
         rho_b = particle_density(v_neighbor_system, neighbor_system, neighbor)
-        rho_ref = reference_value(reference_density, density, system, particle,
-                                  neighbor_position, t)
+        rho_ref = reference_value(
+            reference_density, density, system, particle,
+            neighbor_position, t
+        )
 
         p_b = particle_pressure(v_neighbor_system, neighbor_system, neighbor)
-        p_ref = reference_value(reference_pressure, pressure, system, particle,
-                                neighbor_position, t)
+        p_ref = reference_value(
+            reference_pressure, pressure, system, particle,
+            neighbor_position, t
+        )
 
         v_b = current_velocity(v_neighbor_system, neighbor_system, neighbor)
-        v_neighbor_ref = reference_value(reference_velocity, v, system, particle,
-                                         neighbor_position, t)
+        v_neighbor_ref = reference_value(
+            reference_velocity, v, system, particle,
+            neighbor_position, t
+        )
 
         # Determine characteristic variables
         density_term = -sound_speed^2 * (rho_b - rho_ref)

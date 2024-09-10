@@ -13,7 +13,7 @@ end
 end
 
 @inline function naive_winding(polygon::Polygon{2}, edges, query_point)
-    winding_number = sum(edges, init=zero(eltype(polygon))) do edge
+    winding_number = sum(edges, init = zero(eltype(polygon))) do edge
         v1 = polygon.vertices[edge[1]]
         v2 = polygon.vertices[edge[2]]
 
@@ -27,7 +27,7 @@ end
 end
 
 @inline function naive_winding(mesh::TriangleMesh{3}, faces, query_point)
-    winding_number = sum(faces, init=zero(eltype(mesh))) do face
+    winding_number = sum(faces, init = zero(eltype(mesh))) do face
         v1 = mesh.vertices[face[1]]
         v2 = mesh.vertices[face[2]]
         v3 = mesh.vertices[face[3]]
@@ -65,24 +65,30 @@ Algorithm for inside-outside segmentation of a complex geometry proposed by Jaco
     This is an experimental feature and may change in any future releases.
 """
 struct WindingNumberJacobson{ELTYPE, W}
-    winding_number_factor :: ELTYPE
-    winding               :: W
+    winding_number_factor::ELTYPE
+    winding::W
 
-    function WindingNumberJacobson(; geometry=nothing, winding_number_factor=sqrt(eps()),
-                                   hierarchical_winding=false)
+    function WindingNumberJacobson(;
+            geometry = nothing, winding_number_factor = sqrt(eps()),
+            hierarchical_winding = false
+        )
         if hierarchical_winding && geometry isa Nothing
             throw(ArgumentError("`geometry` must be of type `Polygon` (2D) or `TriangleMesh` (3D) when using hierarchical winding"))
         end
 
         winding = hierarchical_winding ? HierarchicalWinding(geometry) : NaiveWinding()
 
-        return new{typeof(winding_number_factor), typeof(winding)}(winding_number_factor,
-                                                                   winding)
+        return new{typeof(winding_number_factor), typeof(winding)}(
+            winding_number_factor,
+            winding
+        )
     end
 end
 
-function (point_in_poly::WindingNumberJacobson)(geometry, points;
-                                                store_winding_number=false)
+function (point_in_poly::WindingNumberJacobson)(
+        geometry, points;
+        store_winding_number = false
+    )
     (; winding_number_factor, winding) = point_in_poly
 
     inpoly = falses(size(points, 2))

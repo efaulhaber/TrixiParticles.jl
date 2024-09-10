@@ -23,12 +23,16 @@ end
 function Base.show(io::IO, cb::DiscreteCallback{<:Any, <:DensityReinitializationCallback})
     @nospecialize cb # reduce precompilation time
     callback = cb.affect!
-    print(io, "DensityReinitializationCallback(interval=", callback.interval,
-          ", reinit_initial_solution=", callback.reinit_initial_solution, ")")
+    print(
+        io, "DensityReinitializationCallback(interval=", callback.interval,
+        ", reinit_initial_solution=", callback.reinit_initial_solution, ")"
+    )
 end
 
-function Base.show(io::IO, ::MIME"text/plain",
-                   cb::DiscreteCallback{<:Any, <:DensityReinitializationCallback})
+function Base.show(
+        io::IO, ::MIME"text/plain",
+        cb::DiscreteCallback{<:Any, <:DensityReinitializationCallback}
+    )
     @nospecialize cb # reduce precompilation time
     if get(io, :compact, false)
         show(io, cb)
@@ -42,8 +46,10 @@ function Base.show(io::IO, ::MIME"text/plain",
     end
 end
 
-function DensityReinitializationCallback(particle_system; interval::Integer=0, dt=0.0,
-                                         reinit_initial_solution=true)
+function DensityReinitializationCallback(
+        particle_system; interval::Integer = 0, dt = 0.0,
+        reinit_initial_solution = true
+    )
     if dt > 0 && interval > 0
         error("Setting both interval and dt is not supported!")
     end
@@ -60,8 +66,10 @@ function DensityReinitializationCallback(particle_system; interval::Integer=0, d
 
     reinit_cb = DensityReinitializationCallback(interval, last_t, reinit_initial_solution)
 
-    return DiscreteCallback(reinit_cb, reinit_cb, save_positions=(false, false),
-                            initialize=initialize_reinit_cb!)
+    return DiscreteCallback(
+        reinit_cb, reinit_cb, save_positions = (false, false),
+        initialize = initialize_reinit_cb!
+    )
 end
 
 function initialize_reinit_cb!(cb, u, t, integrator)
@@ -74,7 +82,7 @@ function initialize_reinit_cb!(cb::DensityReinitializationCallback, u, t, integr
         # Update systems to compute quantities like density and pressure.
         semi = integrator.p
         v_ode, u_ode = u.x
-        update_systems_and_nhs(v_ode, u_ode, semi, t; update_from_callback=true)
+        update_systems_and_nhs(v_ode, u_ode, semi, t; update_from_callback = true)
 
         # Apply the callback.
         cb(integrator)
@@ -89,7 +97,7 @@ end
 function (reinit_callback::DensityReinitializationCallback{Int})(u, t, integrator)
     (; interval) = reinit_callback
 
-    return condition_integrator_interval(integrator, interval, save_final_solution=false)
+    return condition_integrator_interval(integrator, interval, save_final_solution = false)
 end
 
 # condition with dt
