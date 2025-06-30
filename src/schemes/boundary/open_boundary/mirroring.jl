@@ -276,6 +276,13 @@ function extrapolate_values!(system,
         end
     end
 
+    if !(prescribed_velocity) && boundary_zone.average_inflow_velocity
+        # When no velocity is prescribed at the inflow, the velocity is extrapolated from the fluid domain.
+        # Thus, turbulent flows near the inflow can lead to non-uniform buffer particles distribution,
+        # resulting in a potential numerical instability. Averaging mitigates these effects.
+        average_velocity!(v_open_boundary, u_open_boundary, system, boundary_zone, semi)
+    end
+
     return system
 end
 
