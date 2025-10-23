@@ -115,6 +115,8 @@ function trixi2vtk(system_, dvdu_ode_, vu_ode_, semi_, t, periodic_box;
 
     points = PointNeighbors.periodic_coords(active_coordinates(u, system),
                                             periodic_box)
+    points = permutedims(points)
+
     cells = [MeshCell(VTKCellTypes.VTK_VERTEX, (i,)) for i in axes(points, 2)]
 
     if abs(maximum(points)) > max_coordinates || abs(minimum(points)) > max_coordinates

@@ -241,37 +241,37 @@ end
 
 system_correction(system::WeaklyCompressibleSPHSystem) = system.correction
 
-@inline function current_velocity(v, system::WeaklyCompressibleSPHSystem)
+@propagate_inbounds function current_velocity(v, system::WeaklyCompressibleSPHSystem)
     return current_velocity(v, system.density_calculator, system)
 end
 
-@inline function current_velocity(v, ::SummationDensity,
+@propagate_inbounds function current_velocity(v, ::SummationDensity,
                                   system::WeaklyCompressibleSPHSystem)
     # When using `SummationDensity`, `v` contains only the velocity
     return v
 end
 
-@inline function current_velocity(v, ::ContinuityDensity,
+@propagate_inbounds function current_velocity(v, ::ContinuityDensity,
                                   system::WeaklyCompressibleSPHSystem)
     # When using `ContinuityDensity`, the velocity is stored
     # in the first `ndims(system)` rows of `v`.
-    return view(v, 1:ndims(system), :)
+    return view(v, :, 1:ndims(system))
 end
 
-@inline function current_density(v, system::WeaklyCompressibleSPHSystem)
+@propagate_inbounds function current_density(v, system::WeaklyCompressibleSPHSystem)
     return current_density(v, system.density_calculator, system)
 end
 
-@inline function current_density(v, ::SummationDensity,
+@propagate_inbounds function current_density(v, ::SummationDensity,
                                  system::WeaklyCompressibleSPHSystem)
     # When using `SummationDensity`, the density is stored in the cache
     return system.cache.density
 end
 
-@inline function current_density(v, ::ContinuityDensity,
+@propagate_inbounds function current_density(v, ::ContinuityDensity,
                                  system::WeaklyCompressibleSPHSystem)
     # When using `ContinuityDensity`, the density is stored in the last row of `v`
-    return view(v, size(v, 1), :)
+    return view(v, :, size(v, 2))
 end
 
 @inline function current_pressure(v, system::WeaklyCompressibleSPHSystem)
@@ -403,7 +403,7 @@ end
 
 function write_v0!(v0, system::WeaklyCompressibleSPHSystem, ::ContinuityDensity)
     # Note that `.=` is very slightly faster, but not GPU-compatible
-    v0[end, :] = system.initial_condition.density
+    v0[:, end] = system.initial_condition.density
 
     return v0
 end

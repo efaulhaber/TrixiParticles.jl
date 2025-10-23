@@ -84,8 +84,8 @@ end
 @propagate_inbounds function (viscosity::Union{ArtificialViscosityMonaghan,
                                                ViscosityMorris})(particle_system,
                                                                  neighbor_system,
-                                                                 v_particle_system,
-                                                                 v_neighbor_system,
+                                                                 v_a,
+                                                                 v_b,
                                                                  particle, neighbor,
                                                                  pos_diff, distance,
                                                                  sound_speed,
@@ -93,8 +93,8 @@ end
                                                                  grad_kernel)
     rho_mean = (rho_a + rho_b) / 2
 
-    v_a = viscous_velocity(v_particle_system, particle_system, particle)
-    v_b = viscous_velocity(v_neighbor_system, neighbor_system, neighbor)
+    # v_a = viscous_velocity(v_particle_system, particle_system, particle)
+    # v_b = viscous_velocity(v_neighbor_system, neighbor_system, neighbor)
     v_diff = v_a - v_b
 
     smoothing_length_particle = smoothing_length(particle_system, particle)
@@ -114,7 +114,7 @@ end
     return m_b * pi_ab
 end
 
-@inline function (viscosity::ArtificialViscosityMonaghan)(c, v_diff, pos_diff, distance,
+@fastmath @inline function (viscosity::ArtificialViscosityMonaghan)(c, v_diff, pos_diff, distance,
                                                           rho_mean, rho_a, rho_b, h,
                                                           grad_kernel, nu_a, nu_b)
     (; alpha, beta, epsilon) = viscosity

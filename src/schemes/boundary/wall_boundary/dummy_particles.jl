@@ -283,7 +283,7 @@ end
 @inline function current_density(v, ::ContinuityDensity,
                                  model::BoundaryModelDummyParticles)
     # When using `ContinuityDensity`, the density is stored in the last row of `v`
-    return view(v, size(v, 1), :)
+    return view(v, :, size(v, 2))
 end
 
 @inline function current_pressure(v, model::BoundaryModelDummyParticles, system)

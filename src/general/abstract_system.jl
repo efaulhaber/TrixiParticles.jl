@@ -60,10 +60,10 @@ end
 # Return the `i`-th column of the array `A` as an `SVector`.
 @inline function extract_svector(A, ::Val{NDIMS}, i) where {NDIMS}
     # Explicit bounds check, which can be removed by calling this function with `@inbounds`
-    @boundscheck checkbounds(A, NDIMS, i)
+    @boundscheck checkbounds(A, i, NDIMS)
 
     # Assume inbounds access now
-    return SVector(ntuple(@inline(dim->@inbounds A[dim, i]), NDIMS))
+    return SVector(ntuple(@inline(dim->@inbounds A[i, dim]), NDIMS))
 end
 
 # Return `A[:, :, i]` as an `SMatrix`.
@@ -91,7 +91,7 @@ end
 end
 
 # This can be dispatched by system type
-@inline initial_coordinates(system) = system.initial_condition.coordinates
+@inline initial_coordinates(system) = system.initial_condition.coordinates'
 
 @inline coordinates_eltype(system::AbstractSystem) = eltype(initial_coordinates(system))
 
@@ -104,7 +104,7 @@ end
 # By default, try to extract it from `v`.
 @inline current_velocity(v, system) = v
 
-@inline function current_density(v, system::AbstractSystem, particle)
+@propagate_inbounds function current_density(v, system::AbstractSystem, particle)
     return current_density(v, system)[particle]
 end
 

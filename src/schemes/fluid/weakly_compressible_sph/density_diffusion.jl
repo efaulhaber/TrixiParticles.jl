@@ -46,7 +46,7 @@ struct DensityDiffusionMolteniColagrossi{ELTYPE} <: AbstractDensityDiffusion
     end
 end
 
-@inline function density_diffusion_psi(::DensityDiffusionMolteniColagrossi, rho_a, rho_b,
+@fastmath @inline function density_diffusion_psi(::DensityDiffusionMolteniColagrossi, rho_a, rho_b,
                                        pos_diff, distance, system, particle, neighbor)
     return 2 * (rho_a - rho_b) * pos_diff / distance^2
 end
@@ -210,7 +210,7 @@ function update!(density_diffusion::DensityDiffusionAntuono, v, u, system, semi)
     return density_diffusion
 end
 
-@propagate_inbounds function density_diffusion!(dv,
+@fastmath @propagate_inbounds function density_diffusion!(dv,
                                                 density_diffusion::AbstractDensityDiffusion,
                                                 v_particle_system, particle, neighbor,
                                                 pos_diff, distance, m_b, rho_a, rho_b,
@@ -232,7 +232,7 @@ end
 
     smoothing_length_avg = (smoothing_length(particle_system, particle) +
                             smoothing_length(particle_system, neighbor)) / 2
-    dv[end, particle] += delta * smoothing_length_avg * sound_speed *
+    dv[particle, end] += delta * smoothing_length_avg * sound_speed *
                          density_diffusion_term
 end
 

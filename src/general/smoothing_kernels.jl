@@ -2,7 +2,7 @@ abstract type AbstractSmoothingKernel{NDIMS} end
 
 @inline Base.ndims(::AbstractSmoothingKernel{NDIMS}) where {NDIMS} = NDIMS
 
-@inline function kernel_grad(kernel, pos_diff, distance, h)
+@fastmath @inline function kernel_grad(kernel, pos_diff, distance, h)
     # For `distance == 0`, the analytical gradient is zero, but the code divides by zero.
     # To account for rounding errors, we check if `distance` is almost zero.
     # Since the coordinates are in the order of the smoothing length `h`,
@@ -398,16 +398,12 @@ struct WendlandC2Kernel{NDIMS} <: AbstractWendlandKernel{NDIMS} end
     return result
 end
 
-@fastpow @muladd @inline function kernel_deriv(kernel::WendlandC2Kernel, r::Real, h)
+@fastmath @fastpow @muladd @inline function kernel_deriv(kernel::WendlandC2Kernel, r::Real, h)
     inner_deriv = 1 / h
     q = r * inner_deriv
 
     q1_3 = (1 - q / 2)^3
-    q1_4 = (1 - q / 2)^4
-
-    # We do not use `+=` or `-=` since these are not recognized by MuladdMacro.jl
-    result = -2 * q1_3 * (2q + 1)
-    result = result + q1_4 * 2
+    result = -5 * q1_3 * q
 
     # Zero out result if q >= 2
     result = ifelse(q < 2,
@@ -416,7 +412,7 @@ end
     return result
 end
 
-@inline normalization_factor(::WendlandC2Kernel{2}, h) = 7 / (pi * h^2) / 4
+@fastmath @inline normalization_factor(::WendlandC2Kernel{2}, h) = 7 / (pi * h^2) / 4
 # `2 * pi` is always `Float64`. `pi * h^3 * 2` preserves the type of `h`.
 @inline normalization_factor(::WendlandC2Kernel{3}, h) = 21 / (pi * h^3 * 2) / 8
 

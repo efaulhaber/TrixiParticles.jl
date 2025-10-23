@@ -433,7 +433,7 @@ end
                          v_nvariables(system) * n_integrated_particles(system)
 
     return wrap_array(v_ode, range,
-                      (StaticInt(v_nvariables(system)), n_integrated_particles(system)))
+                      (n_integrated_particles(system), StaticInt(v_nvariables(system))))
 end
 
 @inline function wrap_u(u_ode, system, semi)
@@ -445,7 +445,7 @@ end
                          u_nvariables(system) * n_integrated_particles(system)
 
     return wrap_array(u_ode, range,
-                      (StaticInt(u_nvariables(system)), n_integrated_particles(system)))
+                      (n_integrated_particles(system), StaticInt(u_nvariables(system))))
 end
 
 @inline function wrap_array(array::Array, range, size)
@@ -455,7 +455,7 @@ end
 end
 
 @inline function wrap_array(array::ThreadedBroadcastArray, range, size)
-    return ThreadedBroadcastArray(wrap_array(parent(array), range, size))
+    return wrap_array(parent(array), range, size)
 end
 
 @inline function wrap_array(array, range, size)
@@ -524,7 +524,7 @@ end
     delta_v_ = delta_v(system, particle)
 
     for i in 1:ndims(system)
-        @inbounds du[i, particle] = v[i, particle] + delta_v_[i]
+        @inbounds du[particle, i] = v[particle, i] + delta_v_[i]
     end
 
     return du
@@ -661,7 +661,7 @@ end
     (; acceleration) = system
 
     for i in 1:ndims(system)
-        dv[i, particle] += acceleration[i]
+        dv[particle, i] += acceleration[i]
     end
 
     return dv

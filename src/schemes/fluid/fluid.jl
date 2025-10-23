@@ -79,17 +79,21 @@ end
 function write_u0!(u0, system::AbstractFluidSystem)
     (; initial_condition) = system
 
+    coords = permutedims(initial_condition.coordinates)
+
     # This is as fast as a loop with `@inbounds`, but it's GPU-compatible
-    indices = CartesianIndices(initial_condition.coordinates)
-    copyto!(u0, indices, initial_condition.coordinates, indices)
+    indices = CartesianIndices(coords)
+    copyto!(u0, indices, coords, indices)
 
     return u0
 end
 
 function write_v0!(v0, system::AbstractFluidSystem)
     # This is as fast as a loop with `@inbounds`, but it's GPU-compatible
-    indices = CartesianIndices(system.initial_condition.velocity)
-    copyto!(v0, indices, system.initial_condition.velocity, indices)
+    velocity = permutedims(system.initial_condition.velocity)
+
+    indices = CartesianIndices(velocity)
+    copyto!(v0, indices, velocity, indices)
 
     write_v0!(v0, system, system.density_calculator)
 
@@ -140,20 +144,21 @@ end
 @propagate_inbounds function continuity_equation!(dv, density_calculator::ContinuityDensity,
                                                   particle_system::AbstractFluidSystem,
                                                   neighbor_system,
-                                                  v_particle_system, v_neighbor_system,
+                                                  v_a, v_b,
                                                   particle, neighbor, pos_diff, distance,
                                                   m_b, rho_a, rho_b, grad_kernel)
-    vdiff = current_velocity(v_particle_system, particle_system, particle) -
-            current_velocity(v_neighbor_system, neighbor_system, neighbor)
+    # vdiff = current_velocity(v_particle_system, particle_system, particle) -
+    #         current_velocity(v_neighbor_system, neighbor_system, neighbor)
+    vdiff = v_a - v_b
 
-    dv[end, particle] += rho_a / rho_b * m_b * dot(vdiff, grad_kernel)
+    @fastmath dv[particle, end] += rho_a / rho_b * m_b * dot(vdiff, grad_kernel)
 
     # Artificial density diffusion should only be applied to systems representing a fluid
     # with the same physical properties i.e. density and viscosity.
     # TODO: shouldn't be applied to particles on the interface (depends on PR #539)
     if particle_system === neighbor_system
         density_diffusion!(dv, density_diffusion(particle_system),
-                           v_particle_system, particle, neighbor,
+                           nothing, particle, neighbor,
                            pos_diff, distance, m_b, rho_a, rho_b, particle_system,
                            grad_kernel)
     end

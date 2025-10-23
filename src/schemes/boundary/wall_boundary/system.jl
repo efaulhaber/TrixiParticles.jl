@@ -30,7 +30,7 @@ struct WallBoundarySystem{BM, ELTYPE <: Real, NDIMS, IC, CO, M, IM,
                                 prescribed_motion, ismoving, adhesion_coefficient, cache)
         ELTYPE = eltype(initial_condition)
 
-        new{typeof(boundary_model), ELTYPE, size(coordinates, 1), typeof(initial_condition),
+        new{typeof(boundary_model), ELTYPE, size(coordinates, 2), typeof(initial_condition),
             typeof(coordinates), typeof(prescribed_motion), typeof(ismoving),
             typeof(cache)}(initial_condition, coordinates, boundary_model,
                            prescribed_motion, ismoving, adhesion_coefficient, cache)
@@ -39,7 +39,7 @@ end
 
 function WallBoundarySystem(initial_condition, model; prescribed_motion=nothing,
                             adhesion_coefficient=0.0, color_value=0)
-    coordinates = copy(initial_condition.coordinates)
+    coordinates = permutedims(initial_condition.coordinates)
 
     ismoving = Ref(!isnothing(prescribed_motion))
     initialize_prescribed_motion!(prescribed_motion, initial_condition)
@@ -64,7 +64,7 @@ end
 @inline Base.eltype(::WallBoundarySystem{<:Any, ELTYPE}) where {ELTYPE} = ELTYPE
 
 @inline function nparticles(system::WallBoundarySystem)
-    size(system.coordinates, 2)
+    size(system.coordinates, 1)
 end
 
 # No particle positions are advanced for wall boundary systems,
@@ -144,7 +144,7 @@ end
 end
 
 @inline function viscous_velocity(v, viscosity, system::WallBoundarySystem, particle)
-    return extract_svector(system.boundary_model.cache.wall_velocity, system, particle)
+    return extract_svector(system.boundary_model.cache.wall_velocity', system, particle)
 end
 
 @inline function viscous_velocity(v, ::Nothing, system::WallBoundarySystem, particle)
@@ -226,7 +226,7 @@ function write_v0!(v0,
     (; cache) = system.boundary_model
     (; initial_density) = cache
 
-    v0[1, :] = initial_density
+    v0[:, 1] = initial_density
 
     return v0
 end
