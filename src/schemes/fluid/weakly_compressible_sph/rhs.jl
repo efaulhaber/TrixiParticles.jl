@@ -51,7 +51,6 @@ function interact!(dv, v_particle_system, u_particle_system,
             m_b = @inbounds hydrodynamic_mass(neighbor_system, neighbor)
             v_b = @inbounds current_velocity(v_neighbor_system, neighbor_system, neighbor)
             rho_b = @inbounds current_density(v_neighbor_system, neighbor_system, neighbor)
-            rho_mean = (rho_a + rho_b) / 2
 
             # The following call is equivalent to
             #     `p_b = current_pressure(v_neighbor_system, neighbor_system, neighbor)`
@@ -96,7 +95,7 @@ function interact!(dv, v_particle_system, u_particle_system,
             (viscosity_correction, pressure_correction,
              surface_tension_correction) = free_surface_correction(correction,
                                                                    particle_system,
-                                                                   rho_mean)
+                                                                   rho_a, rho_b)
 
             # Accumulate contributions over all neighbors
             dv_particle[] += dv_pressure * pressure_correction +
