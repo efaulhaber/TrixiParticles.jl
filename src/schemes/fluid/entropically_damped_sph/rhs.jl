@@ -42,6 +42,9 @@ function interact!(dv, v_particle_system, u_particle_system,
         rho_a = @inbounds current_density(v_particle_system, particle_system, particle)
         rho_b = @inbounds current_density(v_neighbor_system, neighbor_system, neighbor)
 
+        v_a = @inbounds current_velocity(v_particle_system, particle_system, particle)
+        v_b = @inbounds current_velocity(v_neighbor_system, neighbor_system, neighbor)
+
         p_a = @inbounds current_pressure(v_particle_system, particle_system, particle)
         p_b = @inbounds current_pressure(v_neighbor_system, neighbor_system, neighbor)
 
@@ -62,11 +65,12 @@ function interact!(dv, v_particle_system, u_particle_system,
                                             rho_b, pos_diff, distance, grad_kernel,
                                             correction)
 
-        dv_viscosity_ = @inbounds dv_viscosity(particle_system, neighbor_system,
-                                               v_particle_system, v_neighbor_system,
-                                               particle, neighbor, pos_diff, distance,
-                                               sound_speed, m_a, m_b, rho_a, rho_b,
-                                               grad_kernel)
+        dv_viscosity_ = Ref(zero(pos_diff))
+        @inbounds dv_viscosity!(dv_viscosity_, particle_system, neighbor_system,
+                                v_particle_system, v_neighbor_system,
+                                particle, neighbor, pos_diff, distance,
+                                sound_speed, m_a, m_b, rho_a, rho_b,
+                                v_a, v_b, grad_kernel)
 
         dv_particle = Ref(dv_pressure + dv_viscosity_)
 

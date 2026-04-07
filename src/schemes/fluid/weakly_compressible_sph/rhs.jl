@@ -63,6 +63,9 @@ function interact!(dv, v_particle_system, u_particle_system,
         m_a = @inbounds hydrodynamic_mass(particle_system, particle)
         m_b = @inbounds hydrodynamic_mass(neighbor_system, neighbor)
 
+        v_a = @inbounds current_velocity(v_particle_system, particle_system, particle)
+        v_b = @inbounds current_velocity(v_neighbor_system, neighbor_system, neighbor)
+
         # The following call is equivalent to
         #     `p_a = current_pressure(v_particle_system, particle_system, particle)`
         #     `p_b = current_pressure(v_neighbor_system, neighbor_system, neighbor)`
@@ -82,12 +85,12 @@ function interact!(dv, v_particle_system, u_particle_system,
                                             distance, grad_kernel, correction)
 
         # Propagate `@inbounds` to the viscosity function, which accesses particle data
-        dv_viscosity_ = viscosity_correction *
-                        @inbounds dv_viscosity(particle_system, neighbor_system,
-                                               v_particle_system, v_neighbor_system,
-                                               particle, neighbor, pos_diff, distance,
-                                               sound_speed, m_a, m_b, rho_a, rho_b,
-                                               grad_kernel)
+        dv_viscosity_ = Ref(zero(pos_diff))
+        @inbounds dv_viscosity!(dv_viscosity_, particle_system, neighbor_system,
+                                v_particle_system, v_neighbor_system,
+                                particle, neighbor, pos_diff, distance,
+                                sound_speed, m_a, m_b, rho_a, rho_b,
+                                v_a, v_b, grad_kernel, viscosity_correction)
 
         dv_particle = Ref(dv_pressure + dv_viscosity_)
 

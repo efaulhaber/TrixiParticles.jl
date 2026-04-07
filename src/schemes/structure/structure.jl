@@ -81,10 +81,12 @@ function interact_structure_fluid!(dv, v_particle_system, u_particle_system,
                                             pos_diff, distance, grad_kernel,
                                             system_correction(neighbor_system))
 
-        dv_viscosity_ = dv_viscosity(neighbor_system, particle_system,
-                                     v_neighbor_system, v_particle_system,
-                                     neighbor, particle, pos_diff, distance,
-                                     sound_speed, m_b, m_a, rho_b, rho_a, grad_kernel)
+        dv_viscosity_ = Ref(zero(pos_diff))
+        dv_viscosity!(dv_viscosity_, neighbor_system, particle_system,
+                      v_neighbor_system, v_particle_system,
+                      neighbor, particle, pos_diff, distance,
+                      sound_speed, m_b, m_a, rho_b, rho_a,
+                      v_a, v_b, grad_kernel)
 
         dv_particle = Ref(dv_boundary + dv_viscosity_)
         adhesion_force!(dv_particle, surface_tension, neighbor_system, particle_system,
