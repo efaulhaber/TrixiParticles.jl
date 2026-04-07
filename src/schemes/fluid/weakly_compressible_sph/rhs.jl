@@ -163,7 +163,7 @@ end
 
 # Optimized version for WCSPH with `ContinuityDensity` in 3D on GPUs,
 # which combines the velocity and density load into one wide load.
-@inline function velocity_and_density(v::AbstractGPUArray, ::ContinuityDensity,
+@inline function velocity_and_density(v, ::ContinuityDensity,
                                       ::WeaklyCompressibleSPHSystem{3}, particle)
     # Since `v` is stored as a 4 x N matrix, this aligned load extracts one column
     # of `v` corresponding to `particle`.
