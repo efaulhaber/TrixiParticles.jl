@@ -94,7 +94,8 @@ end
                                                                       particle, neighbor,
                                                                       pos_diff, distance,
                                                                       sound_speed,
-                                                                      m_a, m_b, rho_a, rho_b,
+                                                                      m_a, m_b,
+                                                                      rho_a, rho_b,
                                                                       v_a, v_b, grad_kernel,
                                                                       viscosity_correction=1)
     v_visc_a = viscous_velocity(v_particle_system, particle_system, particle, v_a)
@@ -109,13 +110,12 @@ end
     # approaching particles and turn it off for receding particles. In this way, the
     # viscosity is used for shocks and not rarefactions."
     if vr < 0
-        (; alpha, beta, epsilon) = viscosity
-
         h_a = smoothing_length(particle_system, particle)
-        h_b = smoothing_length(particle_system, neighbor)
+        h_b = smoothing_length(neighbor_system, neighbor)
         h = (h_a + h_b) / 2
 
         rho_mean = (rho_a + rho_b) / 2
+        (; alpha, beta, epsilon) = viscosity
 
         # Since this is one of the most performance critical functions, using fast divisions
         # here gives a significant speedup on GPUs.
@@ -170,7 +170,7 @@ end
     v_diff = v_visc_a - v_visc_b
 
     smoothing_length_particle = smoothing_length(particle_system, particle)
-    smoothing_length_neighbor = smoothing_length(particle_system, neighbor)
+    smoothing_length_neighbor = smoothing_length(neighbor_system, neighbor)
     h = (smoothing_length_particle + smoothing_length_neighbor) / 2
 
     nu_a = kinematic_viscosity(particle_system,
@@ -192,17 +192,6 @@ end
                             rho_a * rho_b * (distance^2 + epsilon * h^2)) * v_diff
 
     dv_particle[] += viscosity_correction * dv_viscosity
-end
-
-# See, e.g.,
-# Joseph J. Monaghan. "Smoothed Particle Hydrodynamics".
-# In: Reports on Progress in Physics (2005), pages 1703-1759.
-# [doi: 10.1088/0034-4885/68/8/r01](http://dx.doi.org/10.1088/0034-4885/68/8/R01)
-@inline function kinematic_viscosity(system, viscosity::ArtificialViscosityMonaghan,
-                                     smoothing_length, sound_speed)
-    (; alpha) = viscosity
-
-    return alpha * smoothing_length * sound_speed / (2 * ndims(system) + 4)
 end
 
 @doc raw"""
@@ -268,7 +257,7 @@ end
     epsilon = viscosity.epsilon
 
     smoothing_length_particle = smoothing_length(particle_system, particle)
-    smoothing_length_neighbor = smoothing_length(particle_system, neighbor)
+    smoothing_length_neighbor = smoothing_length(neighbor_system, neighbor)
     smoothing_length_average = (smoothing_length_particle + smoothing_length_neighbor) / 2
 
     nu_a = kinematic_viscosity(particle_system,
@@ -359,7 +348,7 @@ end
     epsilon = viscosity.epsilon
 
     smoothing_length_particle = smoothing_length(particle_system, particle)
-    smoothing_length_neighbor = smoothing_length(particle_system, neighbor)
+    smoothing_length_neighbor = smoothing_length(neighbor_system, neighbor)
     smoothing_length_average = (smoothing_length_particle + smoothing_length_neighbor) / 2
 
     nu_a = kinematic_viscosity(particle_system,
@@ -480,7 +469,7 @@ end
     epsilon = viscosity.epsilon
 
     smoothing_length_particle = smoothing_length(particle_system, particle)
-    smoothing_length_neighbor = smoothing_length(particle_system, neighbor)
+    smoothing_length_neighbor = smoothing_length(neighbor_system, neighbor)
     h = (smoothing_length_particle + smoothing_length_neighbor) / 2
 
     nu_a = kinematic_viscosity(particle_system,
@@ -568,7 +557,7 @@ end
     epsilon = viscosity.epsilon
 
     smoothing_length_particle = smoothing_length(particle_system, particle)
-    smoothing_length_neighbor = smoothing_length(particle_system, neighbor)
+    smoothing_length_neighbor = smoothing_length(neighbor_system, neighbor)
     smoothing_length_average = (smoothing_length_particle + smoothing_length_neighbor) / 2
 
     v_a = viscous_velocity(v_particle_system, particle_system, particle, v_a)
