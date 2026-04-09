@@ -122,7 +122,7 @@ end
         # See the docs page "Development" for more details on `div_fast`.
         mu = div_fast(h * vr, distance^2 + epsilon * h^2)
         c = sound_speed
-        dv_viscosity = m_b * div_fast(alpha * c * mu + beta * mu^2, rho_mean) * grad_kernel
+        dv_viscosity = div_fast(m_b * alpha * c * mu + beta * mu^2, rho_mean) * grad_kernel
         dv_particle[] += viscosity_correction * dv_viscosity
     end
 
