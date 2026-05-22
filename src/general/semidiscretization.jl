@@ -18,6 +18,10 @@ The semidiscretization couples the passed systems to one simulation.
 - `threaded_nhs_update=true`:   Can be used to deactivate thread parallelization in the neighborhood search update.
                                 This can be one of the largest sources of variations between simulations
                                 with different thread numbers due to particle ordering changes.
+- `update_neighborhood_search_in_callback=false`: Update the neighborhood search in the
+                                                  [`UpdateCallback`](@ref) instead of in
+                                                  every stage. This is only supported with
+                                                  [`PrecomputedNeighborhoodSearch`](@ref).
 
 # Examples
 ```jldoctest; output = false, setup = :(trixi_include(@__MODULE__, joinpath(examples_dir(), "fluid", "hydrostatic_water_column_2d.jl"), sol=nothing); ref_system = fluid_system)
@@ -57,25 +61,29 @@ struct Semidiscretization{BACKEND, S, RU, RV, NS, UCU, IT}
     parallelization_backend :: BACKEND
     update_callback_used    :: UCU
     integrate_tlsph         :: IT # `false` if TLSPH integration is decoupled
+    update_neighborhood_search_in_callback :: Bool
 
     # Dispatch at `systems` to distinguish this constructor from the one below when
     # 4 systems are passed.
     # This is an internal constructor only used in `test/count_allocations.jl`.
     function Semidiscretization(systems::Tuple, ranges_u, ranges_v, neighborhood_searches,
                                 parallelization_backend::PointNeighbors.ParallelizationBackend,
-                                update_callback_used, integrate_tlsph)
+                                update_callback_used, integrate_tlsph,
+                                update_neighborhood_search_in_callback=false)
         new{typeof(parallelization_backend), typeof(systems), typeof(ranges_u),
             typeof(ranges_v), typeof(neighborhood_searches),
             typeof(update_callback_used),
             typeof(integrate_tlsph)}(systems, ranges_u, ranges_v,
                                      neighborhood_searches, parallelization_backend,
-                                     update_callback_used, integrate_tlsph)
+                                     update_callback_used, integrate_tlsph,
+                                     update_neighborhood_search_in_callback)
     end
 end
 
 function Semidiscretization(systems::Union{AbstractSystem, Nothing}...;
                             neighborhood_search=GridNeighborhoodSearch{ndims(first(systems))}(),
-                            parallelization_backend=PolyesterBackend())
+                            parallelization_backend=PolyesterBackend(),
+                            update_neighborhood_search_in_callback=false)
     systems = filter(system -> !isnothing(system), systems)
 
     if isempty(systems)
@@ -109,6 +117,12 @@ function Semidiscretization(systems::Union{AbstractSystem, Nothing}...;
 
     @assert isconcretetype(eltype(searches)) "neighborhood searches are not type-stable"
 
+    if update_neighborhood_search_in_callback &&
+       !(eltype(searches) <: PrecomputedNeighborhoodSearch)
+        throw(ArgumentError("`update_neighborhood_search_in_callback` is only supported " *
+                            "with `PrecomputedNeighborhoodSearch`"))
+    end
+
     # These will be set to true inside the `UpdateCallback`.
     # Some techniques require the use of this callback, and this flag can be used
     # to determine if the callback is used in a simulation.
@@ -121,7 +135,7 @@ function Semidiscretization(systems::Union{AbstractSystem, Nothing}...;
 
     return Semidiscretization(systems, ranges_u, ranges_v, searches,
                               parallelization_backend, update_callback_used,
-                              integrate_tlsph)
+                              integrate_tlsph, update_neighborhood_search_in_callback)
 end
 
 # Inline show function e.g. Semidiscretization(neighborhood_search=...)
@@ -414,6 +428,28 @@ function calculate_dt(v_ode, u_ode, cfl_number, semi::Semidiscretization)
     end
 end
 
+function maximum_particle_speed(v_ode, semi::Semidiscretization)
+    maximum_speed = zero(eltype(v_ode))
+
+    foreach_system(semi) do system
+        v = wrap_v(v_ode, system, semi)
+        maximum_speed = max(maximum_speed, maximum_particle_speed(v, system))
+    end
+
+    return maximum_speed
+end
+
+function maximum_particle_speed(v, system)
+    maximum_speed = zero(eltype(v))
+
+    for particle in each_integrated_particle(system)
+        velocity = current_velocity(v, system, particle)
+        maximum_speed = max(maximum_speed, norm(velocity))
+    end
+
+    return maximum_speed
+end
+
 function drift!(du_ode, v_ode, u_ode, semi, t)
     @trixi_timeit timer() "drift!" begin
         foreach_system(semi) do system
@@ -487,7 +523,8 @@ function kick!(dv_ode, v_ode, u_ode, semi, t)
         @trixi_timeit timer() "reset ∂v/∂t" set_zero!(dv_ode)
 
         @trixi_timeit timer() "update systems and nhs" update_systems_and_nhs(v_ode, u_ode,
-                                                                              semi, t)
+                                                                              semi, t;
+                                                                              update_nhs=!semi.update_neighborhood_search_in_callback)
 
         @trixi_timeit timer() "system interaction" system_interaction!(dv_ode, v_ode, u_ode,
                                                                        semi)
@@ -500,7 +537,8 @@ end
 
 # Update the systems and neighborhood searches (NHS) for a simulation
 # before calling `interact!` to compute forces.
-function update_systems_and_nhs(v_ode, u_ode, semi, t)
+function update_systems_and_nhs(v_ode, u_ode, semi, t; update_nhs=true,
+                                nhs_search_radius=nothing)
     # First update step before updating the NHS
     # (for example for writing the current coordinates in the TLSPH system)
     foreach_system_wrapped(semi, v_ode, u_ode) do system, v, u
@@ -508,7 +546,9 @@ function update_systems_and_nhs(v_ode, u_ode, semi, t)
     end
 
     # Update NHS
-    @trixi_timeit timer() "update nhs" update_nhs!(semi, u_ode)
+    if update_nhs
+        @trixi_timeit timer() "update nhs" update_nhs!(semi, u_ode; nhs_search_radius)
+    end
 
     # Second update step.
     # This is used to calculate density and pressure of the fluid systems
@@ -747,6 +787,11 @@ end
 end
 
 function check_update_callback(semi)
+    if semi.update_neighborhood_search_in_callback && !semi.update_callback_used[]
+        throw(ArgumentError("`UpdateCallback` is required when " *
+                            "`update_neighborhood_search_in_callback=true`"))
+    end
+
     foreach_system(semi) do system
         # This check will be optimized away if the system does not require the callback
         if requires_update_callback(system) && !semi.update_callback_used[]

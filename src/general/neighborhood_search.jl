@@ -212,11 +212,25 @@ function create_neighborhood_search(neighborhood_search, system, neighbor)
                                     nparticles(neighbor))
 end
 
+function create_neighborhood_search(neighborhood_search::PrecomputedNeighborhoodSearch,
+                                    system, neighbor)
+    return copy_neighborhood_search(neighborhood_search, compact_support(system, neighbor),
+                                    nparticles(system))
+end
+
 function create_neighborhood_search(neighborhood_search, system::TotalLagrangianSPHSystem,
                                     neighbor::TotalLagrangianSPHSystem)
     # TLSPH self-interaction is using a specialized neighborhood search
     return copy_neighborhood_search(neighborhood_search, zero(eltype(system)),
                                     nparticles(neighbor))
+end
+
+function create_neighborhood_search(neighborhood_search::PrecomputedNeighborhoodSearch,
+                                    system::TotalLagrangianSPHSystem,
+                                    neighbor::TotalLagrangianSPHSystem)
+    # TLSPH self-interaction is using a specialized neighborhood search
+    return copy_neighborhood_search(neighborhood_search, zero(eltype(system)),
+                                    nparticles(system))
 end
 
 # === Neighborhood search lookup ===
@@ -296,7 +310,7 @@ function initialize_self_interaction_nhs(system, neighborhood_search,
 end
 
 # === Neighborhood search updates (per-system) ===
-function update_nhs!(semi, u_ode)
+function update_nhs!(semi, u_ode; nhs_search_radius=nothing)
     # Update NHS for each pair of systems
     foreach_system(semi) do system
         u_system = wrap_u(u_ode, system, semi)
@@ -305,7 +319,8 @@ function update_nhs!(semi, u_ode)
             u_neighbor = wrap_u(u_ode, neighbor, semi)
             neighborhood_search = get_neighborhood_search(system, neighbor, semi)
 
-            update_nhs!(neighborhood_search, system, neighbor, u_system, u_neighbor, semi)
+            update_nhs!(neighborhood_search, system, neighbor, u_system, u_neighbor, semi;
+                        nhs_search_radius)
         end
     end
 end
@@ -317,12 +332,13 @@ function update_nhs!(neighborhood_search,
                      system::AbstractFluidSystem,
                      neighbor::Union{AbstractFluidSystem, TotalLagrangianSPHSystem,
                                      RigidBodySystem},
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # The current coordinates of fluids and structures change over time
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor))
+            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 # -- Fluid / wall interactions
@@ -330,18 +346,19 @@ function update_nhs!(neighborhood_search,
                      system::Union{AbstractFluidSystem,
                                    OpenBoundarySystem{<:BoundaryModelDynamicalPressureZhang}},
                      neighbor::WallBoundarySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Boundary coordinates only change over time when `neighbor.ismoving[]`
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, neighbor.ismoving[]))
+            semi, points_moving=(true, neighbor.ismoving[]),
+            search_radius=nhs_search_radius)
 end
 
 # -- Open boundary interactions
 function update_nhs!(neighborhood_search,
                      system::AbstractFluidSystem, neighbor::OpenBoundarySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # The current coordinates of fluids and open boundaries change over time.
 
     # TODO: Update only `active_coordinates` of open boundaries.
@@ -349,12 +366,13 @@ function update_nhs!(neighborhood_search,
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor))
+            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 function update_nhs!(neighborhood_search,
                      system::OpenBoundarySystem, neighbor::AbstractFluidSystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # The current coordinates of both open boundaries and fluids change over time.
 
     # TODO: Update only `active_coordinates` of open boundaries.
@@ -362,43 +380,47 @@ function update_nhs!(neighborhood_search,
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor))
+            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 function update_nhs!(neighborhood_search,
                      system::OpenBoundarySystem{<:BoundaryModelDynamicalPressureZhang},
                      neighbor::OpenBoundarySystem{<:BoundaryModelDynamicalPressureZhang},
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor))
+            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 function update_nhs!(neighborhood_search,
                      system::OpenBoundarySystem{<:BoundaryModelDynamicalPressureZhang},
                      neighbor::TotalLagrangianSPHSystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor))
+            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 function update_nhs!(neighborhood_search,
                      system::TotalLagrangianSPHSystem,
                      neighbor::OpenBoundarySystem{<:BoundaryModelDynamicalPressureZhang},
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor))
+            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 function update_nhs!(neighborhood_search,
                      system::RigidBodySystem,
                      neighbor::OpenBoundarySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
@@ -407,7 +429,7 @@ end
 function update_nhs!(neighborhood_search,
                      system::OpenBoundarySystem,
                      neighbor::TotalLagrangianSPHSystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
@@ -415,7 +437,7 @@ end
 function update_nhs!(neighborhood_search,
                      system::TotalLagrangianSPHSystem,
                      neighbor::OpenBoundarySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
@@ -423,35 +445,37 @@ end
 # -- TLSPH interactions
 function update_nhs!(neighborhood_search,
                      system::TotalLagrangianSPHSystem, neighbor::AbstractFluidSystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # The current coordinates of fluids and structured change over time
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor))
+            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 function update_nhs!(neighborhood_search,
                      system::TotalLagrangianSPHSystem, neighbor::RigidBodySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
 
 function update_nhs!(neighborhood_search,
                      system::TotalLagrangianSPHSystem, neighbor::WallBoundarySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # The current coordinates of structured change over time.
     # Boundary coordinates only change over time when `neighbor.ismoving[]`.
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, neighbor.ismoving[]))
+            semi, points_moving=(true, neighbor.ismoving[]),
+            search_radius=nhs_search_radius)
 end
 
 function update_nhs!(neighborhood_search,
                      system::TotalLagrangianSPHSystem, neighbor::TotalLagrangianSPHSystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     # TLSPH systems have their own self-interaction NHS.
     return neighborhood_search
@@ -460,37 +484,40 @@ end
 function update_nhs!(neighborhood_search,
                      system::RigidBodySystem,
                      neighbor::Union{AbstractFluidSystem, RigidBodySystem},
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # The current coordinates of fluids and structures change over time.
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor))
+            semi, points_moving=(true, true), eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 function update_nhs!(neighborhood_search,
                      system::RigidBodySystem, neighbor::TotalLagrangianSPHSystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
 
 function update_nhs!(neighborhood_search,
                      system::RigidBodySystem, neighbor::WallBoundarySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # The current coordinates of structures change over time.
     # Boundary coordinates only change over time when `neighbor.ismoving[]`.
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, neighbor.ismoving[]))
+            semi, points_moving=(true, neighbor.ismoving[]),
+            search_radius=nhs_search_radius)
 end
 
 # -- Wall dummy particle interactions
 # This function is the same as the one below to avoid ambiguous dispatch when using `Union`
 function update_nhs!(neighborhood_search,
                      system::WallBoundarySystem{<:BoundaryModelDummyParticles},
-                     neighbor::AbstractFluidSystem, u_system, u_neighbor, semi)
+                     neighbor::AbstractFluidSystem, u_system, u_neighbor, semi;
+                     nhs_search_radius=nothing)
     # Depending on the density calculator of the boundary model, this NHS is used for
     # - kernel summation (`SummationDensity`)
     # - continuity equation (`ContinuityDensity`)
@@ -502,14 +529,15 @@ function update_nhs!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
             semi, points_moving=(system.ismoving[], true),
-            eachindex_y=each_active_particle(neighbor))
+            eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 # This function is the same as the one above to avoid ambiguous dispatch when using `Union`
 function update_nhs!(neighborhood_search,
                      system::WallBoundarySystem{<:BoundaryModelDummyParticles},
                      neighbor::OpenBoundarySystem{<:BoundaryModelDynamicalPressureZhang},
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Depending on the density calculator of the boundary model, this NHS is used for
     # - kernel summation (`SummationDensity`)
     # - continuity equation (`ContinuityDensity`)
@@ -521,14 +549,15 @@ function update_nhs!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
             semi, points_moving=(system.ismoving[], true),
-            eachindex_y=each_active_particle(neighbor))
+            eachindex_y=each_active_particle(neighbor),
+            search_radius=nhs_search_radius)
 end
 
 # This function is the same as the one above to avoid ambiguous dispatch when using `Union`
 function update_nhs!(neighborhood_search,
                      system::WallBoundarySystem{<:BoundaryModelDummyParticles},
                      neighbor::TotalLagrangianSPHSystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Depending on the density calculator of the boundary model, this NHS is used for
     # - kernel summation (`SummationDensity`)
     # - continuity equation (`ContinuityDensity`)
@@ -539,7 +568,8 @@ function update_nhs!(neighborhood_search,
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(system.ismoving[], true))
+            semi, points_moving=(system.ismoving[], true),
+            search_radius=nhs_search_radius)
 end
 
 # Rigid-wall contact is only computed from the rigid system side. `WallBoundarySystem`
@@ -548,7 +578,7 @@ end
 function update_nhs!(neighborhood_search,
                      system::WallBoundarySystem{<:BoundaryModelDummyParticles},
                      neighbor::RigidBodySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
@@ -557,41 +587,42 @@ end
 function update_nhs!(neighborhood_search,
                      system::WallBoundarySystem{<:BoundaryModelDummyParticles},
                      neighbor::WallBoundarySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # `system` coordinates only change over time when `system.ismoving[]`.
     # `neighbor` coordinates only change over time when `neighbor.ismoving[]`.
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(system.ismoving[], neighbor.ismoving[]))
+            semi, points_moving=(system.ismoving[], neighbor.ismoving[]),
+            search_radius=nhs_search_radius)
 end
 
 # -- DEM interactions
 function update_nhs!(neighborhood_search,
                      system::DEMSystem, neighbor::DEMSystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Both coordinates change over time
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, true))
+            semi, points_moving=(true, true), search_radius=nhs_search_radius)
 end
 
 function update_nhs!(neighborhood_search,
                      system::DEMSystem, neighbor::BoundaryDEMSystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # DEM coordinates change over time, the boundary coordinates don't
     update!(neighborhood_search,
             current_coordinates(u_system, system),
             current_coordinates(u_neighbor, neighbor),
-            semi, points_moving=(true, false))
+            semi, points_moving=(true, false), search_radius=nhs_search_radius)
 end
 
 # -- Combinations that are never used
 function update_nhs!(neighborhood_search,
                      system::WallBoundarySystem,
                      neighbor::Union{AbstractFluidSystem, RigidBodySystem},
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
@@ -599,7 +630,7 @@ end
 function update_nhs!(neighborhood_search,
                      system::BoundaryDEMSystem,
                      neighbor::Union{DEMSystem, BoundaryDEMSystem},
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
@@ -607,7 +638,7 @@ end
 function update_nhs!(neighborhood_search,
                      system::Union{WallBoundarySystem, OpenBoundarySystem},
                      neighbor::Union{WallBoundarySystem, OpenBoundarySystem},
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
@@ -615,14 +646,20 @@ end
 function update_nhs!(neighborhood_search,
                      system::OpenBoundarySystem,
                      neighbor::RigidBodySystem,
-                     u_system, u_neighbor, semi)
+                     u_system, u_neighbor, semi; nhs_search_radius=nothing)
     # Don't update. This NHS is never used.
     return neighborhood_search
 end
 
 # === PointNeighbors forwarding ===
 function update!(neighborhood_search, x, y, semi; points_moving=(true, true),
-                 eachindex_y=axes(y, 2))
-    PointNeighbors.update!(neighborhood_search, x, y; points_moving, eachindex_y,
-                           parallelization_backend=semi.parallelization_backend)
+                 eachindex_y=axes(y, 2), search_radius=nothing)
+    if isnothing(search_radius)
+        PointNeighbors.update!(neighborhood_search, x, y; points_moving, eachindex_y,
+                               parallelization_backend=semi.parallelization_backend)
+    else
+        PointNeighbors.update!(neighborhood_search, x, y; points_moving, eachindex_y,
+                               search_radius,
+                               parallelization_backend=semi.parallelization_backend)
+    end
 end

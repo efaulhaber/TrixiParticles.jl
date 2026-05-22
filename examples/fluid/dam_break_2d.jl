@@ -94,10 +94,11 @@ boundary_system = WallBoundarySystem(tank.boundary, boundary_model,
 
 # ==========================================================================================
 # ==== Simulation
-# `nothing` will automatically choose the best update strategy. This is only to be able
-# to change this with `trixi_include`.
+# The precomputed neighborhood search is updated from `UpdateCallback` instead of every
+# stage. This can be changed with `trixi_include`.
 semi = Semidiscretization(fluid_system, boundary_system,
-                          neighborhood_search=GridNeighborhoodSearch{2}(update_strategy=nothing),
+                          neighborhood_search=PrecomputedNeighborhoodSearch{2}(),
+                          update_neighborhood_search_in_callback=true,
                           parallelization_backend=PolyesterBackend())
 ode = semidiscretize(semi, tspan)
 
@@ -107,7 +108,7 @@ solution_prefix = ""
 saving_callback = SolutionSavingCallback(dt=0.02, prefix=solution_prefix)
 
 # This can be overwritten with `trixi_include`
-extra_callback = nothing
+extra_callback = UpdateCallback()
 extra_callback2 = nothing
 
 use_reinit = false

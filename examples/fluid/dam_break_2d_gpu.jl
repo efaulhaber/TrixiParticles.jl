@@ -27,10 +27,7 @@ trixi_include(@__MODULE__,
               coordinates_eltype=Float64, tspan=tspan, sol=nothing, ode=nothing)
 
 # Define a GPU-compatible neighborhood search
-min_corner = minimum(tank.boundary.coordinates, dims=2)
-max_corner = maximum(tank.boundary.coordinates, dims=2)
-cell_list = FullGridCellList(; min_corner, max_corner)
-neighborhood_search = GridNeighborhoodSearch{2}(; cell_list)
+neighborhood_search = PrecomputedNeighborhoodSearch{2}()
 
 # Run the dam break simulation with this neighborhood search
 trixi_include(@__MODULE__,
