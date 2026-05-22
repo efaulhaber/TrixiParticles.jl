@@ -22,6 +22,9 @@ The semidiscretization couples the passed systems to one simulation.
                                                   [`UpdateCallback`](@ref) instead of in
                                                   every stage. This is only supported with
                                                   [`PrecomputedNeighborhoodSearch`](@ref).
+- `update_neighborhood_search_interval=1`: Number of accepted time steps between
+                                           neighborhood search updates when
+                                           `update_neighborhood_search_in_callback=true`.
 
 # Examples
 ```jldoctest; output = false, setup = :(trixi_include(@__MODULE__, joinpath(examples_dir(), "fluid", "hydrostatic_water_column_2d.jl"), sol=nothing); ref_system = fluid_system)
@@ -62,6 +65,7 @@ struct Semidiscretization{BACKEND, S, RU, RV, NS, UCU, IT}
     update_callback_used    :: UCU
     integrate_tlsph         :: IT # `false` if TLSPH integration is decoupled
     update_neighborhood_search_in_callback :: Bool
+    update_neighborhood_search_interval :: Int
 
     # Dispatch at `systems` to distinguish this constructor from the one below when
     # 4 systems are passed.
@@ -69,21 +73,24 @@ struct Semidiscretization{BACKEND, S, RU, RV, NS, UCU, IT}
     function Semidiscretization(systems::Tuple, ranges_u, ranges_v, neighborhood_searches,
                                 parallelization_backend::PointNeighbors.ParallelizationBackend,
                                 update_callback_used, integrate_tlsph,
-                                update_neighborhood_search_in_callback=false)
+                                update_neighborhood_search_in_callback=false,
+                                update_neighborhood_search_interval=1)
         new{typeof(parallelization_backend), typeof(systems), typeof(ranges_u),
             typeof(ranges_v), typeof(neighborhood_searches),
             typeof(update_callback_used),
             typeof(integrate_tlsph)}(systems, ranges_u, ranges_v,
                                      neighborhood_searches, parallelization_backend,
                                      update_callback_used, integrate_tlsph,
-                                     update_neighborhood_search_in_callback)
+                                     update_neighborhood_search_in_callback,
+                                     update_neighborhood_search_interval)
     end
 end
 
 function Semidiscretization(systems::Union{AbstractSystem, Nothing}...;
                             neighborhood_search=GridNeighborhoodSearch{ndims(first(systems))}(),
                             parallelization_backend=PolyesterBackend(),
-                            update_neighborhood_search_in_callback=false)
+                            update_neighborhood_search_in_callback=false,
+                            update_neighborhood_search_interval::Integer=1)
     systems = filter(system -> !isnothing(system), systems)
 
     if isempty(systems)
@@ -122,6 +129,9 @@ function Semidiscretization(systems::Union{AbstractSystem, Nothing}...;
         throw(ArgumentError("`update_neighborhood_search_in_callback` is only supported " *
                             "with `PrecomputedNeighborhoodSearch`"))
     end
+    if update_neighborhood_search_interval < 1
+        throw(ArgumentError("`update_neighborhood_search_interval` must be a positive integer"))
+    end
 
     # These will be set to true inside the `UpdateCallback`.
     # Some techniques require the use of this callback, and this flag can be used
@@ -135,7 +145,8 @@ function Semidiscretization(systems::Union{AbstractSystem, Nothing}...;
 
     return Semidiscretization(systems, ranges_u, ranges_v, searches,
                               parallelization_backend, update_callback_used,
-                              integrate_tlsph, update_neighborhood_search_in_callback)
+                              integrate_tlsph, update_neighborhood_search_in_callback,
+                              Int(update_neighborhood_search_interval))
 end
 
 # Inline show function e.g. Semidiscretization(neighborhood_search=...)

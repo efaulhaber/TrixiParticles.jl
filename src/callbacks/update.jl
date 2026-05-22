@@ -84,9 +84,10 @@ function (update_callback!::UpdateCallback)(integrator)
         # still have the values from the last stage of the previous step if not updated here.
         @trixi_timeit timer() "update systems and nhs" begin
             # Don't create sub-timers here to avoid cluttering the timer output
+            update_nhs = update_callback_update_nhs(semi, integrator)
             nhs_search_radius = update_callback_nhs_search_radius(v_ode, semi, integrator)
             @notimeit timer() update_systems_and_nhs(v_ode, u_ode, semi, t;
-                                                     nhs_search_radius)
+                                                     update_nhs, nhs_search_radius)
         end
 
         # Update open boundaries first, since particles might be activated or deactivated
@@ -112,12 +113,24 @@ function (update_callback!::UpdateCallback)(integrator)
     return integrator
 end
 
+function update_callback_update_nhs(semi, integrator)
+    if !semi.update_neighborhood_search_in_callback
+        return true
+    end
+
+    return condition_integrator_interval(integrator,
+                                         semi.update_neighborhood_search_interval;
+                                         save_final_solution=false)
+end
+
 function update_callback_nhs_search_radius(v_ode, semi, integrator)
     if !semi.update_neighborhood_search_in_callback
         return nothing
     end
 
-    maximum_displacement = abs(integrator.dt) * maximum_particle_speed(v_ode, semi)
+    maximum_displacement = abs(integrator.dt) *
+                           semi.update_neighborhood_search_interval *
+                           maximum_particle_speed(v_ode, semi)
 
     return maximum(map(PointNeighbors.search_radius, semi.neighborhood_searches)) +
            2 * maximum_displacement
