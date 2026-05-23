@@ -99,6 +99,7 @@ boundary_system = WallBoundarySystem(tank.boundary, boundary_model,
 semi = Semidiscretization(fluid_system, boundary_system,
                           neighborhood_search=PrecomputedNeighborhoodSearch{2}(),
                           update_neighborhood_search_in_callback=true,
+                          update_neighborhood_search_interval=10,
                           parallelization_backend=PolyesterBackend())
 ode = semidiscretize(semi, tspan)
 
