@@ -48,11 +48,12 @@ macro trixi_testset(name, expr)
 end
 
 struct DummySemidiscretization
-    parallelization_backend :: Any
-    integrate_tlsph         :: Any
+    parallelization_backend             :: Any
+    integrate_tlsph                     :: Any
+    update_neighborhood_search_interval :: Int
 
     function DummySemidiscretization(; parallelization_backend=SerialBackend())
-        new(parallelization_backend, Ref(true))
+        new(parallelization_backend, Ref(true), 0)
     end
 end
 
