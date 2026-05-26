@@ -27,6 +27,7 @@
         # Verification
         @test semi.ranges_u == (1:6, 7:15)
         @test semi.ranges_v == (1:6, 7:18)
+        @test semi.update_neighborhood_search_interval == 0
 
         nhs = [TrixiParticles.TrivialNeighborhoodSearch{3}(search_radius=0.2,
                eachpoint=1:2)
@@ -37,6 +38,33 @@
                TrixiParticles.TrivialNeighborhoodSearch{3}(search_radius=0.2,
                eachpoint=1:3)]
         @test semi.neighborhood_searches == nhs
+
+        semi_precomputed = Semidiscretization(system1, system2;
+                                              neighborhood_search=PrecomputedNeighborhoodSearch{3}(),
+                                              update_neighborhood_search_interval=3)
+        @test semi_precomputed.update_neighborhood_search_interval == 3
+        @test eltype(semi_precomputed.neighborhood_searches) <: PrecomputedNeighborhoodSearch
+
+        v_ode = zeros(sum(length, semi_precomputed.ranges_v))
+        v_ode[1:6] .= vec([1.0 2.0; 2.0 3.0; 2.0 6.0])
+        @test TrixiParticles.maximum_particle_speed(v_ode, semi_precomputed) ≈ 7.0
+
+        integrator = (; dt=0.5)
+        search_radius_padding = TrixiParticles.search_radius_padding(v_ode,
+                                                                     semi_precomputed,
+                                                                     integrator)
+        @test isapprox(search_radius_padding, 2 * 0.5 * 3 * 7.0 * 1.05; rtol=1.0e-6)
+
+        error_str = "positive `update_neighborhood_search_interval` is only supported " *
+                    "with `PrecomputedNeighborhoodSearch`"
+        @test_throws ArgumentError(error_str) Semidiscretization(system1, system2;
+                                                                 neighborhood_search=nothing,
+                                                                 update_neighborhood_search_interval=3)
+
+        error_str = "`update_neighborhood_search_interval` must be non-negative"
+        @test_throws ArgumentError(error_str) Semidiscretization(system1, system2;
+                                                                 neighborhood_search=PrecomputedNeighborhoodSearch{3}(),
+                                                                 update_neighborhood_search_interval=-1)
     end
 
     @testset verbose=true "Check Configuration" begin

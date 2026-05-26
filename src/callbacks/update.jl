@@ -93,7 +93,14 @@ function (update_callback!::UpdateCallback)(integrator)
         # still have the values from the last stage of the previous step if not updated here.
         @trixi_timeit timer() "update systems and nhs" begin
             # Don't create sub-timers here to avoid cluttering the timer output
-            @notimeit timer() update_systems_and_nhs(v_ode, u_ode, semi, t)
+            update_nhs = condition_update_nhs(semi, integrator)
+            if update_nhs && semi.update_neighborhood_search_interval > 0
+                nhs_search_radius_padding = search_radius_padding(v_ode, semi, integrator)
+            else
+                nhs_search_radius_padding = 0
+            end
+            @notimeit timer() update_systems_and_nhs(v_ode, u_ode, semi, t;
+                                                     update_nhs, nhs_search_radius_padding)
         end
 
         # Update open boundaries first, since particles might be activated or deactivated
@@ -125,6 +132,33 @@ function (update_callback!::UpdateCallback)(integrator)
     end
 
     return integrator
+end
+
+function condition_update_nhs(semi, integrator)
+    # Interval 0 means that the NHS is updated every time the coordinates change,
+    # which means in every stage of the time integrator and from the callback.
+    if semi.update_neighborhood_search_interval == 0
+        return true
+    end
+
+    # Only update every `update_neighborhood_search_interval` time steps.
+    return condition_integrator_interval(integrator,
+                                         semi.update_neighborhood_search_interval;
+                                         save_final_solution=false)
+end
+
+function search_radius_padding(v_ode, semi, integrator)
+    # The maximum distance a particle can move in `update_neighborhood_search_interval`
+    # time steps.
+    maximum_displacement = abs(integrator.dt) *
+                           semi.update_neighborhood_search_interval *
+                           maximum_particle_speed(v_ode, semi)
+
+    # In `update_neighborhood_search_interval` time steps, two particles can move
+    # at most `2 * maximum_displacement` relative to each other.
+    # We add a safety factor of 1.05 because the maximum speed can change
+    # during the time steps.
+    return 2 * maximum_displacement * 1.05f0
 end
 
 function Base.show(io::IO, cb::DiscreteCallback{<:Any, <:UpdateCallback})

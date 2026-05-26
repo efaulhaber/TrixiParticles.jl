@@ -325,6 +325,9 @@ end
     error("`current_velocity(v, system)` is not implemented for `TotalLagrangianSPHSystem`")
 end
 
+# Ignore the velocity of the clamped particles in the maximum particle speed calculation.
+@inline velocity_for_maximum_particle_speed(v, ::TotalLagrangianSPHSystem) = v
+
 @propagate_inbounds function current_density(v, system::TotalLagrangianSPHSystem)
     return current_density(v, system.boundary_model, system)
 end
