@@ -33,6 +33,35 @@ function kinetic_energy(system::AbstractBoundarySystem,
     return zero(eltype(system))
 end
 
+function maximum_particle_speed(v_ode, semi)
+    max_speed = zero(eltype(v_ode))
+
+    foreach_system(semi) do system
+        v = wrap_v(v_ode, system, semi)
+        max_speed = max(max_speed, maximum_particle_speed(v, system))
+    end
+
+    return max_speed
+end
+
+function maximum_particle_speed(v, system::AbstractSystem)
+    if iszero(n_integrated_particles(system))
+        return zero(eltype(v))
+    end
+
+    # This has similar performance as `maximum(..., eachparticle(system))`,
+    # but is GPU-compatible.
+    velocity = velocity_for_maximum_particle_speed(v, system)
+    max_speed2 = maximum(x -> dot(x, x),
+                         reinterpret(reshape, SVector{ndims(system), eltype(velocity)},
+                                     velocity))
+
+    return sqrt(max_speed2)
+end
+
+# This is dispatched for TLSPH.
+@inline velocity_for_maximum_particle_speed(v, system) = current_velocity(v, system)
+
 """
     total_mass
 

@@ -45,4 +45,16 @@
         error_str = "Setting both interval and dt is not supported!"
         @test_throws ArgumentError(error_str) UpdateCallback(dt=0.1, interval=1)
     end
+
+    @testset "Neighborhood Search Update Interval" begin
+        semi_default = (; update_neighborhood_search_interval=0)
+        semi_interval = (; update_neighborhood_search_interval=3)
+
+        @test TrixiParticles.condition_update_nhs(semi_default,
+                                                        (; stats=(; naccept=1)))
+        @test TrixiParticles.condition_update_nhs(semi_interval,
+                                                        (; stats=(; naccept=3)))
+        @test !TrixiParticles.condition_update_nhs(semi_interval,
+                                                         (; stats=(; naccept=4)))
+    end
 end
