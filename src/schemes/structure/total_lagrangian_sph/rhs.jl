@@ -46,7 +46,7 @@ end
 
         # Accumulate the RHS contributions over all neighbors before writing to `dv`
         # to reduce the number of memory writes.
-        dv_particle = @inbounds mapreduce_neighbor(+, system_coords, system_coords,
+        dv_particle_ = @inbounds mapreduce_neighbor(+, system_coords, system_coords,
                                                    neighborhood_search, backend, particle;
                                                    init=zero(current_coords_a)) do particle,
                                                                                    neighbor,
@@ -55,9 +55,9 @@ end
 
             # Skip neighbors with the same position because the kernel gradient is zero.
             # Note that `return` only exits the closure, i.e., skips the current neighbor.
-            if skip_zero_distance(system) && initial_distance < almostzero
-                return zero(initial_pos_diff)
-            end
+            # if skip_zero_distance(system) && initial_distance < almostzero
+            #     return zero(initial_pos_diff)
+            # end
 
             # Now that we know that `distance` is not zero, we can safely call the unsafe
             # version of the kernel gradient to avoid redundant zero checks.
@@ -73,28 +73,28 @@ end
             # The compiler is smart enough to optimize this away if no penalty force is used
             F_b = @inbounds deformation_gradient(system, neighbor)
 
-            current_pos_diff_ = current_coords_a - current_coords_b
+            @fastmath current_pos_diff_ = current_coords_a - current_coords_b
             # In mixed-precision simulations, convert from `coordinates_eltype(system)`
             # to `eltype(system)` immediately after computing the difference.
             current_pos_diff = convert.(eltype(system), current_pos_diff_)
-            current_distance = norm(current_pos_diff)
+            @fastmath current_distance = sqrt(dot(current_pos_diff, current_pos_diff))
 
-            dv_particle = Ref(m_b * (pk1_rho2_a + pk1_rho2_b) * grad_kernel)
+            @fastmath dv_particle = m_b * (pk1_rho2_a + pk1_rho2_b) * grad_kernel
 
-            @inbounds dv_penalty_force!(dv_particle, penalty_force, particle, neighbor,
+            dv_particle = @inbounds dv_penalty_force!(dv_particle, penalty_force, particle, neighbor,
                                         initial_pos_diff, initial_distance,
                                         current_pos_diff, current_distance,
                                         system, m_a, m_b, rho_a, rho_b, F_a, F_b)
 
-            @inbounds dv_viscosity_tlsph!(dv_particle, system, v_system, particle, neighbor,
+            dv_particle = @inbounds dv_viscosity_tlsph!(dv_particle, system, v_system, particle, neighbor,
                                           current_pos_diff, current_distance,
                                           m_a, m_b, rho_a, rho_b, F_a, grad_kernel)
 
-            return dv_particle[]
+            return ifelse(initial_distance < almostzero, zero(dv_particle), dv_particle)
         end
 
         for i in 1:ndims(system)
-            @inbounds dv[i, particle] += dv_particle[i]
+            @inbounds dv[i, particle] += dv_particle_[i]
         end
 
         # TODO continuity equation for boundary model with `ContinuityDensity`?

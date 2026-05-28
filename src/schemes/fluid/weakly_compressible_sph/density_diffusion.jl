@@ -210,7 +210,7 @@ function update!(density_diffusion::DensityDiffusionAntuono, v, u, system, semi)
     return density_diffusion
 end
 
-@propagate_inbounds function density_diffusion(drho_particle,
+@propagate_inbounds @fastmath function density_diffusion(drho_particle,
                                                density_diffusion::AbstractDensityDiffusion,
                                                particle_system::Union{AbstractFluidSystem,
                                                                       OpenBoundarySystem{<:BoundaryModelDynamicalPressureZhang}},
@@ -219,8 +219,7 @@ end
     # Density diffusion terms are all zero for distance zero.
     # If `skip_zero_distance` is `true`, we can assume that this function isn't called
     # for distance zero because these neighbors have already been skipped.
-    if !skip_zero_distance(particle_system) &&
-       distance^2 < eps(initial_smoothing_length(particle_system)^2)
+    if distance^2 < eps(initial_smoothing_length(particle_system)^2)
         return drho_particle
     end
 

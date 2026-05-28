@@ -58,7 +58,7 @@ end
     # Since this is one of the most performance critical functions, using fast divisions
     # here gives a significant speedup on GPUs.
     # See the docs page "Development" for more details on `div_fast`.
-    dv_particle[] += div_fast((alpha / 2) * volume_a * volume_b * kernel_weight * delta_sum,
+    dv_particle += div_fast((alpha / 2) * volume_a * volume_b * kernel_weight * delta_sum,
                               initial_distance^2 * current_distance^2 * m_a) *
                      current_pos_diff
 

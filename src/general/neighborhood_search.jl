@@ -59,7 +59,7 @@ end
 @propagate_inbounds function mapreduce_neighbor(f, op, system_coords, neighbor_coords,
                                                 neighborhood_search, backend, particle;
                                                 init)
-    PointNeighbors.mapreduce_neighbor(f, op, system_coords, neighbor_coords,
+    PointNeighbors.mapreduce_neighbor_unsafe(f, op, system_coords, neighbor_coords,
                                       neighborhood_search, particle; init)
 end
 
@@ -227,7 +227,7 @@ end
 
 function create_neighborhood_search(neighborhood_search, system, neighbor)
     return copy_neighborhood_search(neighborhood_search, compact_support(system, neighbor),
-                                    nparticles(neighbor))
+                                    nparticles(system))
 end
 
 function create_neighborhood_search(neighborhood_search, system::TotalLagrangianSPHSystem,

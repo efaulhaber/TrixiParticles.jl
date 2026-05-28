@@ -31,7 +31,7 @@ end
 # other `pressure_acceleration` form.
 # We assume symmetry of the kernel gradient in this formulation. See below for the
 # asymmetric version.
-@inline function pressure_acceleration_continuity_density(m_a, m_b, rho_a, rho_b, p_a, p_b,
+@inline @fastmath function pressure_acceleration_continuity_density(m_a, m_b, rho_a, rho_b, p_a, p_b,
                                                           W_a)
     # Since this is one of the most performance critical functions, using fast divisions
     # here gives a significant speedup on GPUs.

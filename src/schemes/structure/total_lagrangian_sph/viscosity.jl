@@ -31,7 +31,7 @@ end
 # Applying the viscosity according to Lin et al. (2015):
 # "Geometrically nonlinear analysis of two-dimensional structures using an improved
 # smoothed particle hydrodynamics method"
-@propagate_inbounds function (viscosity::ArtificialViscosityMonaghan)(dv_particle,
+@propagate_inbounds @fastmath function (viscosity::ArtificialViscosityMonaghan)(dv_particle,
                                                                       system::TotalLagrangianSPHSystem,
                                                                       v_system,
                                                                       particle, neighbor,
@@ -83,7 +83,7 @@ end
             return dv_particle
         end
         # See eq. 26 of Lin et al. (2015)
-        dv_particle[] += m_b * det_F * inv(F_a)' * pi_ab
+        dv_particle += m_b * det_F * inv(F_a)' * pi_ab
     end
 
     return dv_particle

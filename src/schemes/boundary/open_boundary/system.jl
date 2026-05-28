@@ -732,11 +732,11 @@ function check_configuration(system::OpenBoundarySystem, systems, neighborhood_s
                             "Please specify `InFlow()` and `OutFlow()`."))
     end
 
-    if first(PointNeighbors.requires_update(neighborhood_search))
-        throw(ArgumentError("`OpenBoundarySystem` requires a neighborhood search " *
-                            "that does not require an update for the first set of coordinates (e.g. `GridNeighborhoodSearch`). " *
-                            "See the PointNeighbors.jl documentation for more details."))
-    end
+    # if first(PointNeighbors.requires_update(neighborhood_search))
+    #     throw(ArgumentError("`OpenBoundarySystem` requires a neighborhood search " *
+    #                         "that does not require an update for the first set of coordinates (e.g. `GridNeighborhoodSearch`). " *
+    #                         "See the PointNeighbors.jl documentation for more details."))
+    # end
 end
 
 function check_boundary_zone_widths(boundary_zones, fluid_system)

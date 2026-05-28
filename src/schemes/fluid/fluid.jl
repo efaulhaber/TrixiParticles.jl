@@ -157,7 +157,7 @@ end
                         m_b, rho_a, rho_b, v_a, v_b, grad_kernel)
 end
 
-@propagate_inbounds function continuity_equation(drho_particle,
+@propagate_inbounds @fastmath function continuity_equation(drho_particle,
                                                  particle_system, neighbor_system,
                                                  particle, neighbor, pos_diff, distance,
                                                  m_b, rho_a, rho_b, v_a, v_b, grad_kernel)

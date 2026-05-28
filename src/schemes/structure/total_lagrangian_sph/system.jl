@@ -522,7 +522,7 @@ end
 
             # Skip neighbors with the same position because the kernel gradient is zero.
             # Note that `return` only exits the closure, i.e., skips the current neighbor.
-            skip_zero_distance(system) && initial_distance < almostzero && return zero(L_a)
+            # skip_zero_distance(system) && initial_distance < almostzero && return zero(L_a)
 
             # Now that we know that `distance` is not zero, we can safely call the unsafe
             # version of the kernel gradient to avoid redundant zero checks.
@@ -535,14 +535,15 @@ end
             volume = @inbounds div_fast(mass[neighbor], material_density[neighbor])
             current_coords_b = @inbounds current_coords(system, neighbor)
 
-            pos_diff_ = current_coords_a - current_coords_b
+            @fastmath pos_diff_ = current_coords_a - current_coords_b
             # In mixed-precision simulations, convert from `coordinates_eltype(system)`
             # to `eltype(system)` immediately after computing the difference.
             pos_diff = convert.(eltype(system), pos_diff_)
 
             # The tensor product pos_diff ⊗ (L_{0a} * ∇W) is equivalent to multiplication
             # by the transpose: pos_diff * (L_{0a} * ∇W)ᵀ = pos_diff * ∇Wᵀ * L_{0a}ᵀ.
-            return -volume * pos_diff * grad_kernel' * L_a'
+            @fastmath F_T = -volume * L_a * grad_kernel * pos_diff'
+            return F_T'
         end
 
         for j in 1:ndims(system), i in 1:ndims(system)

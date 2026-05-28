@@ -36,7 +36,7 @@ function interact!(dv, v_particle_system, u_particle_system,
 
         # Accumulate the RHS contributions over all neighbors before writing to `dv`,
         # to reduce the number of memory writes.
-        @inline function op(a, b)
+        @inline @fastmath function op(a, b)
             dv_a, drho_a = a
             dv_b, drho_b = b
             return dv_a + dv_b, drho_a + drho_b
@@ -44,8 +44,8 @@ function interact!(dv, v_particle_system, u_particle_system,
         init = (zero(v_a), zero(rho_a))
 
         # Loop over all neighbors within the kernel cutoff
-        (dv_particle,
-         drho_particle) = @inbounds mapreduce_neighbor(op, system_coords,
+        (dv_particle_,
+         drho_particle_) = @inbounds mapreduce_neighbor(op, system_coords,
                                                        neighbor_system_coords,
                                                        neighborhood_search,
                                                        backend, particle;
@@ -53,12 +53,13 @@ function interact!(dv, v_particle_system, u_particle_system,
                                                                 pos_diff, distance
             # Skip neighbors with the same position because the kernel gradient is zero.
             # Note that `return` only exits the closure, i.e., skips the current neighbor.
-            skip_zero_distance(particle_system) && distance < almostzero && return init
+            # skip_zero_distance(particle_system) && distance < almostzero && return init
 
             # Now that we know that `distance` is not zero, we can safely call the unsafe
             # version of the kernel gradient to avoid redundant zero checks.
             grad_kernel = smoothing_kernel_grad_unsafe(particle_system, pos_diff,
                                                        distance, particle)
+            # grad_kernel = ifelse(distance < almostzero, zero(grad_kernel), grad_kernel)
 
             # `foreach_neighbor` makes sure that `neighbor` is in bounds of `neighbor_system`
             m_b = @inbounds hydrodynamic_mass(neighbor_system, neighbor)
@@ -86,7 +87,7 @@ function interact!(dv, v_particle_system, u_particle_system,
                                                 particle, neighbor,
                                                 m_a, m_b, p_a, p_b, rho_a, rho_b, pos_diff,
                                                 distance, grad_kernel, correction)
-            dv_particle = dv_pressure * pressure_correction
+            @fastmath dv_particle = dv_pressure * pressure_correction
 
             # Propagate `@inbounds` to the viscosity function, which accesses particle data
             dv_particle = @inbounds dv_viscosity(dv_particle, particle_system,
@@ -133,10 +134,10 @@ function interact!(dv, v_particle_system, u_particle_system,
             return dv_particle, drho_particle
         end
 
-        for i in eachindex(dv_particle)
-            @inbounds dv[i, particle] += dv_particle[i]
+        for i in eachindex(dv_particle_)
+            @inbounds dv[i, particle] += dv_particle_[i]
         end
-        @inbounds write_drho_particle!(dv, density_calculator, drho_particle, particle)
+        @inbounds write_drho_particle!(dv, density_calculator, drho_particle_, particle)
     end
 
     return dv

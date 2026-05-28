@@ -82,7 +82,7 @@ end
     return alpha * smoothing_length * sound_speed / (2 * ndims(system) + 4)
 end
 
-@propagate_inbounds function (viscosity::ArtificialViscosityMonaghan)(dv_particle,
+@fastmath @propagate_inbounds function (viscosity::ArtificialViscosityMonaghan)(dv_particle,
                                                                       particle_system,
                                                                       neighbor_system,
                                                                       v_particle_system,
