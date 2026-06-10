@@ -269,7 +269,8 @@ structure_system = TotalLagrangianSPHSystem(structure; smoothing_kernel, smoothi
                                         boundary_model=boundary_model_structure,
                                         velocity_averaging=TrixiParticles.VelocityAveraging(time_constant=5e-4),
                                         viscosity=viscosity_structure,
-                                        penalty_force=PenaltyForceGanzenmueller(alpha=0.1))
+                                        penalty_force=PenaltyForceGanzenmueller(alpha=0.1),
+                                        model=StandardTLSPHModel())
 
 # ==========================================================================================
 # ==== Fluid
