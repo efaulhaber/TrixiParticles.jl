@@ -22,9 +22,9 @@ using Printf: @printf, @sprintf
 using ReadVTK: ReadVTK
 using RecipesBase: RecipesBase, @series
 using Random: seed!
-using SciMLBase: SciMLBase, CallbackSet, DiscreteCallback, DynamicalODEProblem, u_modified!,
-                 get_tmp_cache, set_proposed_dt!, ODESolution, ODEProblem, terminate!,
-                 add_tstop!
+using SciMLBase: SciMLBase, CallbackSet, DiscreteCallback, DynamicalODEProblem,
+                 derivative_discontinuity!, get_tmp_cache, set_proposed_dt!,
+                 ODESolution, ODEProblem, terminate!, add_tstop!
 @reexport using StaticArrays: SVector
 using StaticArrays: @SMatrix, SMatrix, setindex
 using Statistics: Statistics
@@ -67,6 +67,7 @@ include("visualization/recipes_plots.jl")
 export Semidiscretization, semidiscretize, restart_with!
 export InitialCondition, apply_angular_velocity
 export WeaklyCompressibleSPHSystem, EntropicallyDampedSPHSystem, TotalLagrangianSPHSystem,
+       StandardTLSPHModel, BondAssociatedTLSPHModel,
        RigidBodySystem, WallBoundarySystem, DEMSystem, BoundaryDEMSystem,
        OpenBoundarySystem,
        ImplicitIncompressibleSPHSystem
@@ -82,7 +83,7 @@ export PenaltyForceGanzenmueller, TransportVelocityAdami, ParticleShiftingTechni
        ContinuityEquationTermSun2019, MomentumEquationTermSun2019, VelocityAveraging
 export SchoenbergCubicSplineKernel, SchoenbergQuarticSplineKernel,
        SchoenbergQuinticSplineKernel, GaussianKernel, WendlandC2Kernel, WendlandC4Kernel,
-       WendlandC6Kernel, SpikyKernel, Poly6Kernel, LaguerreGaussKernel
+       WendlandC6Kernel, SpikyKernel, Poly6Kernel, LaguerreGaussKernel, ParabolicKernel
 export StateEquationCole, StateEquationIdealGas, StateEquationAdaptiveCole
 export ArtificialViscosityMonaghan, ViscosityAdami, ViscosityMorris, ViscosityAdamiSGS,
        ViscosityMorrisSGS, ViscosityCarreauYasuda
