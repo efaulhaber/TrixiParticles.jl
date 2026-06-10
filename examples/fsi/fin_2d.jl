@@ -356,7 +356,7 @@ neighborhood_search = GridNeighborhoodSearch{2}(; periodic_box, cell_list,
                                                 update_strategy=ParallelUpdate())
 
 semi = Semidiscretization(fluid_system, boundary_system, open_boundary_system, structure_system;
-                          neighborhood_search=PrecomputedNeighborhoodSearch{2}(update_neighborhood_search=neighborhood_search),
+                          neighborhood_search=neighborhood_search,
                           parallelization_backend=PolyesterBackend())
 ode = semidiscretize(semi, tspan)
 
