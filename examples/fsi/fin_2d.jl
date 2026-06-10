@@ -269,6 +269,7 @@ structure_system = TotalLagrangianSPHSystem(structure; smoothing_kernel, smoothi
                                         boundary_model=boundary_model_structure,
                                         velocity_averaging=TrixiParticles.VelocityAveraging(time_constant=5e-4),
                                         viscosity=viscosity_structure,
+                                        model=StandardTLSPHModel(),
                                         penalty_force=PenaltyForceGanzenmueller(alpha=0.1))
 
 # ==========================================================================================
@@ -283,7 +284,6 @@ fluid_system = WeaklyCompressibleSPHSystem(fluid; density_calculator=fluid_densi
                                            density_diffusion,
                                            shifting_technique=ParticleShiftingTechnique(sound_speed_factor=0.2, v_max_factor=0.0),
                                            pressure_acceleration=tensile_instability_control,
-                                           model=StandardTLSPHModel(),
                                            buffer_size=n_buffer_particles)
 # fluid_system = EntropicallyDampedSPHSystem(fluid, smoothing_kernel, smoothing_length,
 #                                            sound_speed, viscosity=ViscosityAdami(; nu),
