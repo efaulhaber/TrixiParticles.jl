@@ -59,6 +59,16 @@ n_particles_xy = round(Int, box_length / particle_spacing)
 # ==== Fluid
 wcsph = false
 
+# Optional adaptive resolution, supported by WCSPH. For example:
+# ParticleRefinementHaftu((x, t) -> all(0.25 .<= x .<= 0.75);
+#                         particle_spacing=particle_spacing / 2)
+particle_refinement = nothing
+refinement_interval = 10
+buffer_size = isnothing(particle_refinement) ? nothing : 6 * n_particles_xy^2
+if !wcsph && !isnothing(particle_refinement)
+    throw(ArgumentError("particle refinement requires wcsph=true"))
+end
+
 nu = U * box_length / reynolds_number
 
 background_pressure = sound_speed^2 * fluid_density
@@ -84,10 +94,13 @@ if wcsph
     fluid_system = WeaklyCompressibleSPHSystem(fluid;
                                                smoothing_kernel, smoothing_length,
                                                density_calculator, state_equation,
+                                               particle_refinement, buffer_size,
                                                pressure_acceleration=TrixiParticles.inter_particle_averaged_pressure,
                                                viscosity=ViscosityAdami(; nu),
-                                               shifting_technique=TransportVelocityAdami(;
-                                                                                         background_pressure))
+                                               shifting_technique=isnothing(particle_refinement) ?
+                                                                  TransportVelocityAdami(;
+                                                                                         background_pressure) :
+                                                                  nothing)
 else
     density_calculator = SummationDensity()
     fluid_system = EntropicallyDampedSPHSystem(fluid; smoothing_kernel, smoothing_length,
@@ -100,8 +113,11 @@ end
 # ==========================================================================================
 # ==== Simulation
 periodic_box = PeriodicBox(min_corner=[0.0, 0.0], max_corner=[box_length, box_length])
-semi = Semidiscretization(fluid_system,
-                          neighborhood_search=GridNeighborhoodSearch{2}(; periodic_box))
+neighborhood_search = isnothing(particle_refinement) ?
+                      GridNeighborhoodSearch{2}(; periodic_box) :
+                      GridNeighborhoodSearch{2}(; periodic_box,
+                                                update_strategy=SerialUpdate())
+semi = Semidiscretization(fluid_system; neighborhood_search)
 
 ode = semidiscretize(semi, tspan)
 
@@ -111,9 +127,17 @@ saving_callback = SolutionSavingCallback(dt=0.02)
 
 pp_callback = nothing
 
-callbacks = CallbackSet(info_callback, saving_callback, pp_callback, UpdateCallback())
+callbacks = isnothing(particle_refinement) ?
+            CallbackSet(info_callback, saving_callback, pp_callback, UpdateCallback()) :
+            CallbackSet(UpdateCallback(interval=refinement_interval), info_callback,
+                        saving_callback, pp_callback)
 
 dt_max = min(smoothing_length / 4 * (sound_speed + U), smoothing_length^2 / (8 * nu))
+if !isnothing(particle_refinement)
+    # Bound the step using the finest requested resolution.
+    h_min = smoothing_length * particle_refinement.particle_spacing / particle_spacing
+    dt_max = min(h_min / (4 * (sound_speed + U)), h_min^2 / (8 * nu))
+end
 
 # Use a Runge-Kutta method with automatic (error based) time step size control
 sol = solve(ode, RDPK3SpFSAL49(),

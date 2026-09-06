@@ -67,8 +67,8 @@ end
         constant_callback = StepsizeCallback{true, Float64}(0.5)
         variable_callback = StepsizeCallback{false, Float64}(0.5)
 
-        integrator_nonadaptive = (; opts=(; adaptive=false))
-        integrator_adaptive = (; opts=(; adaptive=true))
+        integrator_nonadaptive = (; opts=(; adaptive=false), p=(; semi=nothing))
+        integrator_adaptive = (; opts=(; adaptive=true), p=(; semi=nothing))
 
         @test !constant_callback(nothing, 0.0, integrator_nonadaptive)
         @test variable_callback(nothing, 0.0, integrator_nonadaptive)

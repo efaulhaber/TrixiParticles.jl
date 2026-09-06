@@ -302,3 +302,52 @@ momentum.
 ```@docs
 tensile_instability_control
 ```
+
+## Adaptive particle refinement
+
+Refinement is disabled by default (`particle_refinement=nothing`). To refine a central
+square in a unit periodic domain, use:
+
+```julia
+refinement = ParticleRefinementHaftu((x, t) -> all(0.25 .<= x .<= 0.75);
+                                    particle_spacing=particle_spacing / 2)
+fluid_system = WeaklyCompressibleSPHSystem(fluid;
+    smoothing_kernel=SchoenbergQuinticSplineKernel{2}(),
+    smoothing_length=1.2particle_spacing,
+    density_calculator=ContinuityDensity(), state_equation,
+    particle_refinement=refinement, buffer_size=6 * nparticles(fluid))
+semi = Semidiscretization(fluid_system;
+    neighborhood_search=GridNeighborhoodSearch{2}(;
+        periodic_box, update_strategy=SerialUpdate()))
+callbacks = CallbackSet(UpdateCallback(), SolutionSavingCallback(dt=0.02))
+```
+
+See `examples/fluid/taylor_green_vortex_2d_refinement.jl` for a runnable example.
+The refinement region can depend on time. The Taylor–Green example adapts every ten
+accepted steps; set `refinement_interval=1` to adapt every step. Particle spacing grades outward from
+that region, and particles can merge as they leave it. Reserve enough buffer slots
+for the temporary seven-daughter split, before merging reduces the count.
+For smaller target spacings, increase `buffer_size`. `StepsizeCallback` uses the
+smallest active smoothing length on each accepted step for a nonadaptive integrator
+(place it after `UpdateCallback`). For an error-controlled integrator, also bound
+the time step using the finest resolution.
+
+The implementation follows Algorithms 1–4 in Haftu et al. (2022), including
+mass-weighted merging, three merging passes, three limited shifting passes, and
+Taylor corrections of velocity and density. WCSPH pressure is then recomputed from
+the equation of state. The WCSPH equations use the mean of the two particles' kernel
+gradients to maintain pair antisymmetry at resolution interfaces. The paper's EDAC
+equations and geometry-based boundary refinement are not part of this feature.
+Algorithm 3's stricter `min` mass threshold is used where the prose says `max`.
+Smoothing lengths are capped at their initial value so the fixed neighbor search
+always covers the kernels, including during merging and shifting.
+
+This first implementation supports a single 2D WCSPH fluid on CPUs with the quintic
+spline kernel. Boundaries, additional shifting techniques, kernel corrections,
+surface tension, GPU execution, and restart are rejected. Both continuity and
+summation density are supported. VTK output includes adaptive mass, smoothing
+length, and target spacing; inactive buffer particles are excluded.
+
+```@docs
+ParticleRefinementHaftu
+```

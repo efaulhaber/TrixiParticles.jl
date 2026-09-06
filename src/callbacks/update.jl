@@ -102,6 +102,10 @@ function (update_callback!::UpdateCallback)(integrator)
         end
 
         foreach_system(semi) do system
+            update_particle_refinement!(system, v_ode, u_ode, semi, t, integrator)
+        end
+
+        foreach_system(semi) do system
             update_particle_packing(system, v_ode, u_ode, semi, integrator)
         end
 

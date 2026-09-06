@@ -300,6 +300,18 @@ function semidiscretize(semi, tspan; reset_threads=true, restart_with=nothing)
                             "got $(typeof(restart_with))"))
     end
 
+    if !isnothing(restart_with)
+        foreach_system(check_refinement_restart, semi)
+    end
+    if semi.parallelization_backend isa KernelAbstractions.GPU
+        foreach_system(semi) do system
+            if system isa WeaklyCompressibleSPHSystem &&
+               !isnothing(system.particle_refinement)
+                throw(ArgumentError("ParticleRefinementHaftu currently supports only CPU execution"))
+            end
+        end
+    end
+
     # Check that all systems have the same eltype
     first_system = first(systems)
     if !all(system -> eltype(system) === eltype(first_system), systems)
@@ -432,6 +444,7 @@ as density or pressure where applicable.
     that threading is enabled again.
 """
 function restart_with!(semi, sol; reset_threads=true)
+    foreach_system(check_refinement_restart, semi)
     # Optionally reset Polyester.jl threads. See
     # https://github.com/trixi-framework/Trixi.jl/issues/1583
     # https://github.com/JuliaSIMD/Polyester.jl/issues/30
@@ -1066,3 +1079,6 @@ function custom_interaction_pairs(semi)
 
     return isempty(pairs) ? nothing : join(pairs, ", ")
 end
+
+@inline uses_particle_refinement(semi::Semidiscretization) = any(uses_particle_refinement,
+                                                                 semi.systems)

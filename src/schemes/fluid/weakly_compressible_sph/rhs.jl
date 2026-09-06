@@ -53,16 +53,18 @@ function interact!(dv, v_particle_system, u_particle_system,
                                                         neighbor_system_coords,
                                                         neighborhood_search,
                                                         backend, particle;
-                                                        init) do particle, neighbor,
-                                                                 pos_diff, distance
+                                                        init
+                                                        ) do particle, neighbor,
+                                                             pos_diff, distance
             # Skip neighbors with the same position because the kernel gradient is zero.
             # Note that `return` only exits the closure, i.e., skips the current neighbor.
             skip_zero_distance(particle_system) && distance < almostzero && return init
 
-            # Now that we know that `distance` is not zero, we can safely call the unsafe
-            # version of the kernel gradient to avoid redundant zero checks.
-            grad_kernel = smoothing_kernel_grad_unsafe(particle_system, pos_diff,
-                                                       distance, particle)
+            # Adaptive particles check both kernel supports. Fixed-resolution particles
+            # use the unsafe gradient here, since the distance was already checked.
+            grad_kernel = wcsph_kernel_grad(particle_system, neighbor_system,
+                                            pos_diff, distance, particle, neighbor,
+                                            particle_system.particle_refinement)
 
             # `foreach_neighbor` makes sure that `neighbor` is in bounds of `neighbor_system`
             m_b = @inbounds hydrodynamic_mass(neighbor_system, neighbor)
@@ -126,7 +128,6 @@ function interact!(dv, v_particle_system, u_particle_system,
 
             drho_particle = zero(rho_a)
 
-            # TODO If variable smoothing_length is used, this should use the neighbor smoothing length
             # Propagate `@inbounds` to the continuity equation, which accesses particle data
             drho_particle = @inbounds add_continuity_equation(drho_particle,
                                                               density_calculator,

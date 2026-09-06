@@ -5,7 +5,7 @@
                                 viscosity=nothing, density_diffusion=nothing,
                                 pressure_acceleration=nothing,
                                 shifting_technique=nothing,
-                                buffer_size=nothing,
+                                buffer_size=nothing, particle_refinement=nothing,
                                 correction=nothing, source_terms=nothing,
                                 surface_tension=nothing, surface_normal_method=nothing,
                                 reference_particle_spacing=0.0, color_value=1))
@@ -41,6 +41,8 @@ See [Weakly Compressible SPH](@ref wcsph) for more details on the method.
                                 with this system. Default is no shifting.
 - `buffer_size`:                Number of buffer particles.
                                 This is needed when simulating with [`OpenBoundarySystem`](@ref).
+- `particle_refinement`:        Optional [`ParticleRefinementHaftu`](@ref), executed by
+                                [`UpdateCallback`](@ref). Default: `nothing`.
 - `correction`:                 Correction method used for this system. (default: no correction, see [Corrections](@ref corrections))
 - `source_terms`:               Additional source terms for this system. Has to be either `nothing`
                                 (by default), or a function of `(coords, velocity, density, pressure, t)`
@@ -81,7 +83,7 @@ struct WeaklyCompressibleSPHSystem{NDIMS, ELTYPE <: Real, IC, MA, P, DC, SE, K, 
     surface_tension                   :: SRFT
     surface_normal_method             :: SRFN
     buffer                            :: B
-    particle_refinement               :: PR # TODO
+    particle_refinement               :: PR
     cache                             :: C
 end
 
@@ -95,14 +97,18 @@ function WeaklyCompressibleSPHSystem(initial_condition; smoothing_kernel,
                                      viscosity=nothing, density_diffusion=nothing,
                                      pressure_acceleration=nothing,
                                      shifting_technique=nothing,
-                                     buffer_size=nothing,
+                                     buffer_size=nothing, particle_refinement=nothing,
                                      correction=nothing, source_terms=nothing,
                                      surface_tension=nothing, surface_normal_method=nothing,
                                      reference_particle_spacing=0, color_value=1)
+    validate_refinement(particle_refinement, initial_condition, smoothing_kernel,
+                        smoothing_length, correction, surface_tension,
+                        surface_normal_method)
+    if !isnothing(particle_refinement) && isnothing(buffer_size)
+        throw(ArgumentError("particle refinement requires `buffer_size` for daughter particles"))
+    end
     buffer = isnothing(buffer_size) ? nothing :
              SystemBuffer(nparticles(initial_condition), buffer_size)
-
-    particle_refinement = nothing # TODO
 
     initial_condition,
     density_diffusion = allocate_buffer(initial_condition,

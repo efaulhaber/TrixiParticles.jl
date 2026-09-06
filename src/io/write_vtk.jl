@@ -321,6 +321,7 @@ function write2vtk!(vtk, v, u, t, system::DEMSystem)
 end
 
 function write2vtk!(vtk, v, u, t, system::AbstractFluidSystem)
+    write_refinement_vtk!(vtk, system)
     vtk["velocity"] = [current_velocity(v, system, particle)
                        for particle in eachparticle(system)]
     vtk["density"] = [current_density(v, system, particle)

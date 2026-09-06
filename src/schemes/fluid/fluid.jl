@@ -36,11 +36,6 @@ function create_cache_refinement(initial_condition, ::Nothing, smoothing_length)
     return (; smoothing_length, smoothing_length_factor)
 end
 
-# TODO
-function create_cache_refinement(initial_condition, refinement, smoothing_length)
-    # TODO: If refinement is not `Nothing` and `correction` is not `Nothing`, then throw an error
-end
-
 @propagate_inbounds function hydrodynamic_mass(system::AbstractFluidSystem, particle)
     return system.mass[particle]
 end
@@ -203,8 +198,7 @@ end
 function calculate_dt(v_ode, u_ode, cfl_number, system::AbstractFluidSystem, semi)
     (; viscosity, acceleration, surface_tension) = system
 
-    # TODO variable smoothing length
-    smoothing_length_ = initial_smoothing_length(system)
+    smoothing_length_ = timestep_smoothing_length(system)
 
     dt_viscosity = Inf
     if !isnothing(system.viscosity)
@@ -315,6 +309,7 @@ function restart_v(system::AbstractFluidSystem, data)
 end
 
 function check_configuration(fluid_system::AbstractFluidSystem, systems, nhs)
+    check_refinement_configuration(fluid_system, systems, nhs)
     if !(fluid_system isa ParticlePackingSystem) && !isnothing(fluid_system.surface_tension)
         foreach_system(systems) do neighbor
             if neighbor isa AbstractFluidSystem &&
@@ -352,5 +347,6 @@ include("viscosity.jl")
 include("shifting_techniques.jl")
 include("surface_tension.jl")
 include("surface_normal_sph.jl")
+include("particle_refinement.jl")
 include("weakly_compressible_sph/weakly_compressible_sph.jl")
 include("entropically_damped_sph/entropically_damped_sph.jl")

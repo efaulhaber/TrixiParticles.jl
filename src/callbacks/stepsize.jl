@@ -12,7 +12,9 @@ adaptive itself.
 
 The current implementation is using the simplest form of CFL condition, which chooses a
 time step size that is constant during the simulation.
-The step size is therefore only applied once at the beginning of the simulation.
+The step size is therefore only applied once at the beginning of the simulation,
+except with particle refinement, where it is updated after every accepted step.
+Place `UpdateCallback()` before `StepsizeCallback` so new smoothing lengths are used.
 
 The step size ``\Delta t`` is chosen as the minimum
 ```math
@@ -62,7 +64,9 @@ end
 function (stepsize_callback::StepsizeCallback)(u, t, integrator)
     # Only apply the callback when the stepsize is not constant and the time integrator
     # is not adaptive.
-    return !is_constant(stepsize_callback) && !integrator.opts.adaptive
+    adaptive_resolution = uses_particle_refinement(integrator.p.semi)
+    return (!is_constant(stepsize_callback) || adaptive_resolution) &&
+           !integrator.opts.adaptive
 end
 
 # `affect!`
