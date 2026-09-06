@@ -29,15 +29,16 @@ p = plot(; size=(900, 500),
            ylims=(-0.018, 0.005),
            framestyle=:box,
            legend=:bottomleft,
+           palette=palette([:red, :purple, :blue, :green]),
            dpi=200)
 
-plot!(p, [0], [-1]; color=:red, linewidth=2,
+plot!(p, [0], [-1]; linewidth=2,
       label=L"\left(\mathcal{E}_{\mathrm{tot}} - \mathcal{E}_{\mathrm{tot}}^0\right) / \mathcal{E}_{\mathrm{M}}^0")
-plot!(p, [0], [-1]; color=:purple, linewidth=2,
+plot!(p, [0], [-1]; linewidth=2,
       label=L"\left(\mathcal{E}_{\mathrm{C}} - \mathcal{E}_{\mathrm{C}}^0\right) / \mathcal{E}_{\mathrm{M}}^0")
-plot!(p, [0], [-1]; color=:blue, linewidth=2,
+plot!(p, [0], [-1]; linewidth=2,
       label=L"\mathcal{E}_{\mathrm{M}} / \mathcal{E}_{\mathrm{M}}^0 - 1")
-plot!(p, [0], [-1]; color=:green, linewidth=2,
+plot!(p, [0], [-1]; linewidth=2,
       label=L"-Q_{\delta} / \mathcal{E}_{\mathrm{M}}^0")
 
 function plot_energy(filename, linestyle)
@@ -64,23 +65,24 @@ function plot_energy(filename, linestyle)
     q_delta_relative = -q_delta ./ mechanical_initial
 
     plot!(p, t_over_period, total_relative;
-          color=:red, linestyle, linewidth=2, label=false)
+         linestyle, linewidth=2, label=false)
     plot!(p, t_over_period, compressible_relative;
-          color=:purple, linestyle, linewidth=2, label=false)
+         linestyle, linewidth=2, label=false)
     plot!(p, t_over_period, mechanical_relative;
-          color=:blue, linestyle, linewidth=2, label=false)
+         linestyle, linewidth=2, label=false)
     plot!(p, t_over_period, q_delta_relative;
-          color=:green, linestyle, linewidth=2, label=false)
+         linestyle, linewidth=2, label=false)
 end
 
 if include_sim_results
-    if isfile(joinpath("out", result_filename))
+    simulation_output_dir = "out"
+    if isfile(joinpath(simulation_output_dir, result_filename))
         linestyle_sim = :solid
-        plot_energy(joinpath("out", result_filename), linestyle_sim)
+        plot_energy(joinpath(simulation_output_dir, result_filename), linestyle_sim)
         plot!(p, [0], [-1]; color=:black, linestyle=linestyle_sim, linewidth=2,
               label="Simulation")
     else
-        @warn "Simulation result file not found: out/$result_filename"
+        @warn "Simulation result file not found: $simulation_output_dir/$result_filename"
     end
 end
 if include_trixiparticles_reference
@@ -100,11 +102,11 @@ if include_paper_reference
 
     linestyle_ref = :dot
     plot!(p, reference.t_T, reference.E_C;
-          color=:purple, linestyle=linestyle_ref, linewidth=2, label=false)
+         linestyle=linestyle_ref, linewidth=2, label=false)
     plot!(p, reference.t_T, reference.E_M;
-          color=:blue, linestyle=linestyle_ref, linewidth=2, label=false)
+         linestyle=linestyle_ref, linewidth=2, label=false)
     plot!(p, reference.t_T, reference.Q_delta;
-          color=:green, linestyle=linestyle_ref, linewidth=2, label=false)
+         linestyle=linestyle_ref, linewidth=2, label=false)
     plot!(p, [0], [-1]; color=:black, linestyle=linestyle_ref, linewidth=2,
           label="Antuono et al. (2015)")
 end
