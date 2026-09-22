@@ -160,7 +160,8 @@
                 @test isapprox(model.pressure[1], (clip_negative_pressure ? 0 : -1000))
 
                 # Inverse state equation: `ρ = ρ₀ (1 + p/B) = 1000 (1 - 1000/400_000) = 997.5`
-                @test isapprox(model.cache.density[1], (clip_negative_pressure ? 1000 : 997.5))
+                @test isapprox(model.cache.density[1],
+                               (clip_negative_pressure ? 1000 : 997.5))
             end
 
             # Disable the interaction between the fluid system and the boundary system.
@@ -231,12 +232,205 @@
             @test_throws ArgumentError Semidiscretization(setup.wall;
                                                           neighborhood_search=nhs)
         end
+
+        # `RigidBodySystem` does not set up the interpolation points, so it must be
+        # rejected rather than silently interpolating at the origin.
+        @testset "Unsupported System Type" begin
+            boundary = InitialCondition(; coordinates=[-0.1; 0.0;;], density=1000.0,
+                                        particle_spacing=0.1, normals=[-0.05; 0.0;;])
+            model = BoundaryModelDummyParticles(boundary.density, boundary.mass,
+                                                MarronePressureExtrapolation(),
+                                                SchoenbergCubicSplineKernel{2}(), 0.1)
+            rigid_body = RigidBodySystem(boundary; boundary_model=model,
+                                         particle_spacing=0.1)
+
+            @test_throws ArgumentError Semidiscretization(rigid_body)
+        end
     end
 
     @testset "show" begin
         setup = marrone_test_setup(2)
         @test repr(setup.model) ==
               "BoundaryModelDummyParticles(MarronePressureExtrapolation, Nothing)"
+    end
+
+    # For an elastic structure, the interpolation points are material points of the body,
+    # so they have to follow its deformation. The offset `-2 * normal` is a material line
+    # element and is therefore mapped to the current configuration by the deformation
+    # gradient: `x_I = x_G - 2 F_G N_G`.
+    @testset verbose=true "Elastic Structure" begin
+        particle_spacing = 0.1
+        smoothing_length = 2 * particle_spacing
+        smoothing_kernel = SchoenbergCubicSplineKernel{2}()
+
+        # A 3x3 elastic obstacle. `place_on_shell=true` is required by TLSPH, and
+        # `compute_normals=true` provides the distance vectors from the surface of the
+        # obstacle to each particle, pointing into the obstacle.
+        solid = RectangularShape(particle_spacing, (3, 3), (0.0, 0.0); density=1000.0,
+                                 place_on_shell=true, compute_normals=true)
+
+        function tlsph_marrone_setup(; state_equation=nothing)
+            model = BoundaryModelDummyParticles(solid.density, solid.mass,
+                                                MarronePressureExtrapolation(),
+                                                smoothing_kernel, smoothing_length;
+                                                state_equation)
+            system = TotalLagrangianSPHSystem(solid; smoothing_kernel, smoothing_length,
+                                              young_modulus=1.0e6, poisson_ratio=0.3,
+                                              boundary_model=model)
+
+            return (; system, model)
+        end
+
+        # Prescribe a homogeneous deformation gradient and the corresponding
+        # particle positions `x = F X`
+        function apply_homogeneous_deformation!(system, deformation_grad)
+            for particle in TrixiParticles.eachparticle(system)
+                initial_position = TrixiParticles.extract_svector(solid.coordinates,
+                                                                  system, particle)
+                position = deformation_grad * initial_position
+
+                for i in 1:2
+                    system.current_coordinates[i, particle] = position[i]
+                    for j in 1:2
+                        system.deformation_grad[i, j, particle] = deformation_grad[i, j]
+                    end
+                end
+            end
+        end
+
+        # Reference interpolation points, i.e. the boundary particles mirrored across the
+        # surface of the undeformed obstacle
+        reference_interpolation_coordinates = solid.coordinates .- 2 .* solid.normals
+
+        # The TLSPH constructor must set up the interpolation points, just like the
+        # `WallBoundarySystem` constructor does
+        @testset "Initialization" begin
+            (; model) = tlsph_marrone_setup()
+
+            @test model.cache.normals == solid.normals
+            @test model.cache.interpolation_coordinates ==
+                  reference_interpolation_coordinates
+        end
+
+        # `F = I` must reproduce the undeformed mirror points
+        @testset "Undeformed Body" begin
+            (; system, model) = tlsph_marrone_setup()
+            apply_homogeneous_deformation!(system, [1.0 0.0; 0.0 1.0])
+
+            TrixiParticles.update_interpolation_coordinates!(model, system, nothing,
+                                                             DummySemidiscretization())
+
+            @test model.cache.interpolation_coordinates ≈
+                  reference_interpolation_coordinates
+        end
+
+        # `F = R` must reproduce the rigid reflection, i.e. the same result as rotating the
+        # undeformed mirror points. This is the compatibility check against the
+        # `PrescribedMotion` path for rigid walls.
+        @testset "Rigid Rotation" begin
+            (; system, model) = tlsph_marrone_setup()
+            angle = pi / 3
+            rotation = [cos(angle) -sin(angle); sin(angle) cos(angle)]
+            apply_homogeneous_deformation!(system, rotation)
+
+            TrixiParticles.update_interpolation_coordinates!(model, system, nothing,
+                                                             DummySemidiscretization())
+
+            @test model.cache.interpolation_coordinates ≈
+                  rotation * reference_interpolation_coordinates
+        end
+
+        # `F = λ I` scales the whole body, including the distance of each interpolation
+        # point from the surface
+        @testset "Uniform Stretch" begin
+            (; system, model) = tlsph_marrone_setup()
+            stretch = 1.7
+            apply_homogeneous_deformation!(system, [stretch 0.0; 0.0 stretch])
+
+            TrixiParticles.update_interpolation_coordinates!(model, system, nothing,
+                                                             DummySemidiscretization())
+
+            @test model.cache.interpolation_coordinates ≈
+                  stretch * reference_interpolation_coordinates
+        end
+
+        # Simple shear tilts the offset, because `-2 F N` is the image of a material line
+        # element and is no longer perpendicular to the deformed surface
+        @testset "Simple Shear" begin
+            (; system, model) = tlsph_marrone_setup()
+            shear = [1.0 0.5; 0.0 1.0]
+            apply_homogeneous_deformation!(system, shear)
+
+            TrixiParticles.update_interpolation_coordinates!(model, system, nothing,
+                                                             DummySemidiscretization())
+
+            @test model.cache.interpolation_coordinates ≈
+                  shear * reference_interpolation_coordinates
+        end
+
+        # Run the full update through a `Semidiscretization` with a surrounding fluid.
+        # As for a wall, the combination of first-order MLS interpolation and hydrostatic
+        # correction must reproduce a linear pressure field exactly at every structure
+        # particle whose interpolation point is supported by the fluid, no matter how far
+        # that point is from the particle.
+        @testset "Pressure Extrapolation from a Surrounding Fluid" begin
+            gravity = 9.81
+            density = 1000.0
+            state_equation = StateEquationCole(sound_speed=20.0,
+                                               reference_density=density, exponent=1)
+            hydrostatic_pressure(coords) = density * gravity * (1.0 - coords[2])
+
+            # Fluid block with the obstacle cut out of it
+            fluid_block = RectangularShape(particle_spacing, (16, 16), (-0.65, -0.65);
+                                           density=density)
+            fluid = setdiff(fluid_block, solid)
+
+            (; system, model) = tlsph_marrone_setup(; state_equation)
+            fluid_system = WeaklyCompressibleSPHSystem(fluid; smoothing_kernel,
+                                                       smoothing_length,
+                                                       density_calculator=ContinuityDensity(),
+                                                       state_equation,
+                                                       acceleration=(0.0, -gravity))
+
+            semi = Semidiscretization(fluid_system, system)
+            ode = semidiscretize(semi, (0.0, 0.01))
+            v_ode, u_ode = ode.u0.x
+
+            # `Semidiscretization` rebuilds the structure system to initialize its
+            # self-interaction neighborhood search, so use the system it actually holds.
+            # Both systems share the same boundary model object.
+            system = semi.systems[2]
+            v = TrixiParticles.wrap_v(v_ode, system, semi)
+            u = TrixiParticles.wrap_u(u_ode, system, semi)
+
+            fluid_system.pressure .= [hydrostatic_pressure(fluid.coordinates[:, particle])
+                                      for particle in axes(fluid.coordinates, 2)]
+
+            TrixiParticles.update_pressure!(model, system, v, u, v_ode, u_ode, semi)
+
+            expected_pressure = [hydrostatic_pressure(solid.coordinates[:, particle])
+                                 for particle in axes(solid.coordinates, 2)]
+
+            # Particles whose interpolation point has no fluid neighbors fall back to zero
+            # pressure, so only check the supported ones
+            supported = [model.cache.moment_matrix[1, 1, particle] > eps()
+                         for particle in TrixiParticles.eachparticle(system)]
+
+            @test all(supported)
+            @test all(isapprox.(model.pressure[supported],
+                                expected_pressure[supported], atol=1.0e-9))
+
+            # Evaluating the full right-hand side additionally verifies the update
+            # ordering: the deformation gradient is computed in `update_quantities!`,
+            # which runs before the boundary pressure is extrapolated.
+            dv_ode = zero(v_ode)
+            du_ode = zero(u_ode)
+            TrixiParticles.kick!(dv_ode, v_ode, u_ode, ode.p, 0.0)
+            TrixiParticles.drift!(du_ode, v_ode, u_ode, ode.p, 0.0)
+
+            @test all(isfinite, dv_ode)
+            @test all(isfinite, du_ode)
+        end
     end
 
     # The testsets above verify the method on a single boundary particle with a

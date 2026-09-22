@@ -404,10 +404,5 @@ function check_configuration(system::WallBoundarySystem, systems, nhs)
         end
     end
 
-    if boundary_model isa BoundaryModelDummyParticles{MarronePressureExtrapolation} &&
-       first(PointNeighbors.requires_update(nhs))
-        throw(ArgumentError("`MarronePressureExtrapolation` requires a neighborhood " *
-                            "search supporting queries at arbitrary points, such as " *
-                            "`GridNeighborhoodSearch` or `TrivialNeighborhoodSearch`."))
-    end
+    check_marrone_configuration(boundary_model, nhs)
 end

@@ -4,7 +4,7 @@
                      mass=nothing, density=nothing, pressure=0.0,
                      acceleration=nothing, state_equation=nothing,
                      place_on_shell=false, coordinates_eltype=Float64,
-                     coordinates_perturbation=nothing)
+                     coordinates_perturbation=nothing, compute_normals=false)
 
 Rectangular shape filled with particles. Returns an [`InitialCondition`](@ref).
 
@@ -50,6 +50,15 @@ Rectangular shape filled with particles. Returns an [`InitialCondition`](@ref).
                     See [the docs on GPU support](@ref gpu_support) for more information.
 - `coordinates_perturbation`: Add a small random displacement to the particle positions,
                     where the amplitude is `coordinates_perturbation * particle_spacing`.
+- `compute_normals = false`: If `compute_normals=true`, a distance vector from the surface
+                    of the rectangle to each particle is stored in the `normals` field of
+                    the resulting [`InitialCondition`](@ref). Each normal points from the
+                    closest point on the surface into the shape, and its length is the
+                    distance of the particle from the surface. This is required to use a
+                    rectangular obstacle, rigid or elastic, with
+                    [`MarronePressureExtrapolation`](@ref).
+                    This is `false` by default because the normals are of no use for fluids,
+                    where they would only waste memory.
 
 # Examples
 ```jldoctest; output = false, setup = :(particle_spacing = 0.1)
@@ -81,7 +90,8 @@ function RectangularShape(particle_spacing, n_particles_per_dimension, min_coord
                           mass=nothing, density=nothing, pressure=0.0,
                           acceleration=nothing, state_equation=nothing,
                           place_on_shell=false, coordinates_eltype=Float64,
-                          loop_order=nothing, coordinates_perturbation=nothing)
+                          loop_order=nothing, coordinates_perturbation=nothing,
+                          compute_normals=false)
     if particle_spacing < eps()
         throw(ArgumentError("`particle_spacing` needs to be positive and larger than $(eps())"))
     end
@@ -149,8 +159,68 @@ function RectangularShape(particle_spacing, n_particles_per_dimension, min_coord
                             "and `state_equation` (hydrostatic pressure gradient)"))
     end
 
+    normals = if compute_normals
+        calculate_rectangular_normals(coordinates, particle_spacing, Val(NDIMS))
+    end
+
     return InitialCondition(; coordinates, velocity, density, mass, pressure,
-                            particle_spacing)
+                            particle_spacing, normals)
+end
+
+# Compute the distance vectors from the surface of the rectangle to each particle.
+#
+# The surface is placed half a particle spacing outside of the outermost particles,
+# consistent with the convention used by `RectangularTank`.
+# Each normal points from the closest point on the surface to the particle, i.e.,
+# into the shape, and its length is the distance of the particle from the surface.
+# For a particle inside an axis-aligned box, the closest point on the surface always
+# lies on the closest face, so the normals are axis-aligned.
+function calculate_rectangular_normals(coordinates, particle_spacing,
+                                       ::Val{NDIMS}) where {NDIMS}
+    ELTYPE = eltype(coordinates)
+    offset = convert(ELTYPE, particle_spacing / 2)
+
+    # Surface of the rectangle, half a particle spacing outside of the outermost particles
+    surface_min = SVector{NDIMS}(ntuple(dim -> minimum(view(coordinates, dim, :)) - offset,
+                                        NDIMS))
+    surface_max = SVector{NDIMS}(ntuple(dim -> maximum(view(coordinates, dim, :)) + offset,
+                                        NDIMS))
+
+    normals = zeros(ELTYPE, NDIMS, size(coordinates, 2))
+
+    for particle in axes(coordinates, 2)
+        position = extract_svector(coordinates, Val(NDIMS), particle)
+
+        # Find the closest of the `2 * NDIMS` faces
+        closest_dimension = 1
+        closest_distance = typemax(ELTYPE)
+        closest_offset = zero(ELTYPE)
+
+        for dim in 1:NDIMS
+            # Distance to the face in the negative coordinate direction.
+            # The closest point on this face has the same coordinates as the particle,
+            # except in the dimension `dim`, so the normal is `distance * e_dim`.
+            distance = position[dim] - surface_min[dim]
+            if distance < closest_distance
+                closest_dimension = dim
+                closest_distance = distance
+                closest_offset = distance
+            end
+
+            # Distance to the face in the positive coordinate direction.
+            # Here, the normal is `-distance * e_dim`.
+            distance = surface_max[dim] - position[dim]
+            if distance < closest_distance
+                closest_dimension = dim
+                closest_distance = distance
+                closest_offset = -distance
+            end
+        end
+
+        normals[closest_dimension, particle] = closest_offset
+    end
+
+    return normals
 end
 
 # 1D

@@ -183,6 +183,11 @@ function TotalLagrangianSPHSystem(initial_condition; smoothing_kernel, smoothing
     cache = (; create_cache_tlsph(clamped_particles_motion, initial_condition_sorted)...,
              create_cache_tlsph(velocity_averaging, initial_condition_sorted)...)
 
+    # Set up the interpolation points of `MarronePressureExtrapolation` (no-op otherwise).
+    # Note that `initial_condition_sorted` is used here, so that the normals are in the
+    # same order as the particles of this system.
+    initialize_marrone!(boundary_model, initial_condition_sorted)
+
     return TotalLagrangianSPHSystem(initial_condition_sorted, initial_coordinates,
                                     current_coordinates, mass, correction_matrix,
                                     pk1_rho2, deformation_grad, material_density,
@@ -866,6 +871,8 @@ function check_configuration(system::TotalLagrangianSPHSystem, systems, nhs)
                                 "specified when simulating a fluid-structure interaction."))
         end
     end
+
+    check_marrone_configuration(boundary_model, nhs)
 
     if boundary_model isa BoundaryModelDummyParticles &&
        boundary_model.density_calculator isa ContinuityDensity

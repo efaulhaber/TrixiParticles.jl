@@ -172,11 +172,29 @@ evaluated at ``r_I``. A singular local moment matrix falls back to volume-weight
 Shepard interpolation.
 
 The boundary initial condition must provide distance vectors in `normals`, pointing
-from the wall surface to each boundary particle. The interpolation points are then
-constructed as `coordinates - 2 * normals`. [`RectangularTank`](@ref) provides normals
-with this convention, including corners and edges. When the wall uses
-[`PrescribedMotion`](@ref), the interpolation points follow the same motion map, so
-translated and rotating walls are supported.
+from the wall surface to each boundary particle, i.e. away from the fluid. The
+interpolation points are then constructed as `coordinates - 2 * normals`.
+[`RectangularTank`](@ref) provides normals with this convention for its boundary,
+including corners and edges, and [`RectangularShape`](@ref) provides them with
+`compute_normals=true`, which is what an obstacle surrounded by fluid needs.
+
+When the wall uses [`PrescribedMotion`](@ref), the interpolation points follow the same
+motion map, so translated and rotating walls are supported.
+
+This density calculator also works with a [`TotalLagrangianSPHSystem`](@ref), i.e. with
+elastic structures. The interpolation points are material points of the body, so they
+have to follow its deformation. Since the offset ``\bm{r}_I - \bm{r}_G = -2 \bm{N}_G``
+is a material line element, it is mapped to the current configuration by the deformation
+gradient ``\bm{F}_G`` of the structure particle:
+
+```math
+\bm{r}_I = \bm{r}_G - 2 \bm{F}_G \bm{N}_G.
+```
+
+For a rigid rotation ``\bm{F}_G = \bm{R}``, this reduces to the rigid reflection
+``\bm{r}_G - 2 \bm{R} \bm{N}_G``, so it is consistent with the [`PrescribedMotion`](@ref)
+case above. Note that ``\bm{F}`` is least accurate at the outermost particle layer,
+where the kernel support is truncated, which is exactly where it is used here.
 
 ```julia
 boundary_model = BoundaryModelDummyParticles(boundary.density, boundary.mass,

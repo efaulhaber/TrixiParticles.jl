@@ -11,6 +11,9 @@ include("structure/structure.jl")
 # Monaghan-Kajtar repulsive boundary particles require the `WallBoundarySystem`
 # and the `TotalLagrangianSPHSystem`.
 include("boundary/wall_boundary/monaghan_kajtar.jl")
+# `MarronePressureExtrapolation` for elastic structures requires
+# the `TotalLagrangianSPHSystem`.
+include("boundary/wall_boundary/marrone_structure.jl")
 # Implicit incompressible SPH requires the `WallBoundarySystem`
 include("fluid/implicit_incompressible_sph/implicit_incompressible_sph.jl")
 

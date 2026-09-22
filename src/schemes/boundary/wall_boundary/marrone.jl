@@ -1,3 +1,17 @@
+# The interpolation points are not particles of any system, so the fluid neighborhood
+# search has to support queries at arbitrary points. This rules out neighborhood searches
+# with precomputed neighbor lists.
+function check_marrone_configuration(boundary_model, nhs)
+    if boundary_model isa BoundaryModelDummyParticles{MarronePressureExtrapolation} &&
+       first(PointNeighbors.requires_update(nhs))
+        throw(ArgumentError("`MarronePressureExtrapolation` requires a neighborhood " *
+                            "search supporting queries at arbitrary points, such as " *
+                            "`GridNeighborhoodSearch` or `TrivialNeighborhoodSearch`."))
+    end
+
+    return nothing
+end
+
 function initialize_marrone!(model, initial_condition)
     return model
 end
@@ -8,7 +22,7 @@ function initialize_marrone!(model::BoundaryModelDummyParticles{MarronePressureE
     isnothing(normals) &&
         throw(ArgumentError("`MarronePressureExtrapolation` requires boundary normals"))
 
-    interpolation_coordinates = model.cache.interpolation_coordinates
+    (; interpolation_coordinates) = model.cache
     size(coordinates) == size(interpolation_coordinates) ||
         throw(ArgumentError("the boundary model and initial condition must have the same size"))
     all(isfinite, normals) || throw(ArgumentError("boundary normals must be finite"))
@@ -18,10 +32,32 @@ function initialize_marrone!(model::BoundaryModelDummyParticles{MarronePressureE
             throw(ArgumentError("boundary normals must be nonzero for every particle"))
     end
 
-    initial_interpolation_coordinates = model.cache.initial_interpolation_coordinates
-    initial_interpolation_coordinates .= coordinates .- 2 .* normals
-    interpolation_coordinates .= initial_interpolation_coordinates
+    # Store the normals in the reference configuration. They are required in every update
+    # to construct the interpolation points (see `update_interpolation_coordinates!`).
+    model.cache.normals .= normals
 
+    # Interpolation points in the reference configuration
+    interpolation_coordinates .= coordinates .- 2 .* normals
+
+    return model
+end
+
+# Reference position of the interpolation point of `particle`, i.e. the boundary particle
+# mirrored across the wall surface in the reference configuration.
+@propagate_inbounds function initial_interpolation_coordinates(model, system, particle)
+    initial_position = extract_svector(initial_coordinates(system), system, particle)
+    normal = extract_svector(model.cache.normals, system, particle)
+
+    return initial_position - 2 * normal
+end
+
+# Update the points at which the fluid pressure is interpolated.
+#
+# For a wall at rest, the interpolation points never move, so this is a no-op and the
+# points computed in `initialize_marrone!` are reused. Walls with a `PrescribedMotion`
+# are handled in `update_marrone_interpolation_coordinates!`, which is called from
+# `apply_prescribed_motion!` where the time `t` is available.
+function update_interpolation_coordinates!(model, system, u, semi)
     return model
 end
 
@@ -37,14 +73,14 @@ function update_marrone_interpolation_coordinates!(system,
     system.ismoving[] || return model
 
     (; movement_function, moving_particles) = prescribed_motion
-    (; interpolation_coordinates, initial_interpolation_coordinates) = model.cache
+    (; interpolation_coordinates) = model.cache
 
     @threaded semi for particle in moving_particles
-        initial_position = extract_svector(initial_interpolation_coordinates, system,
-                                           particle)
+        initial_position = @inbounds initial_interpolation_coordinates(model, system,
+                                                                       particle)
         position = movement_function(initial_position, t)
         for dimension in eachindex(position)
-            interpolation_coordinates[dimension, particle] = position[dimension]
+            @inbounds interpolation_coordinates[dimension, particle] = position[dimension]
         end
     end
 
@@ -62,6 +98,9 @@ function compute_pressure!(model, ::MarronePressureExtrapolation,
     if haskey(cache, :wall_velocity)
         set_zero!(cache.wall_velocity)
     end
+
+    # Move the interpolation points with the (possibly deforming) boundary
+    update_interpolation_coordinates!(model, system, u, semi)
 
     system_coordinates = current_coordinates(u, system)
 

@@ -624,6 +624,15 @@ function check_configuration(system::RigidBodySystem, systems, nhs)
         end
     end
 
+    # `RigidBodySystem` does not set up the interpolation points of
+    # `MarronePressureExtrapolation`, so reject it instead of silently
+    # interpolating at the origin.
+    if boundary_model isa BoundaryModelDummyParticles{MarronePressureExtrapolation}
+        throw(ArgumentError("`MarronePressureExtrapolation` is not supported by " *
+                            "`RigidBodySystem`. Use a `WallBoundarySystem` with a " *
+                            "`PrescribedMotion` or a `TotalLagrangianSPHSystem`."))
+    end
+
     foreach_system(systems) do neighbor
         if neighbor isa AbstractFluidSystem && boundary_model === nothing
             throw(ArgumentError("a boundary model for `RigidBodySystem` must be specified " *

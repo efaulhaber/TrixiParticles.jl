@@ -196,9 +196,17 @@ particle.
 The mirrored points are constructed from the boundary initial condition as
 `coordinates - 2 * normals`. Thus, every boundary particle requires a nonzero normal
 pointing from the wall surface towards the boundary particle, whose length is the
-particle's distance from the surface. [`RectangularTank`](@ref) and
-other geometries using this convention can provide these normals. With
-[`PrescribedMotion`](@ref), the mirrored points follow the same motion as the boundary.
+particle's distance from the surface. [`RectangularTank`](@ref) provides these normals for
+its boundary, and [`RectangularShape`](@ref) provides them with `compute_normals=true`.
+
+This density calculator can be used with a [`WallBoundarySystem`](@ref) and with a
+[`TotalLagrangianSPHSystem`](@ref):
+- For a wall at rest, the mirrored points never move.
+- With [`PrescribedMotion`](@ref), they follow the same motion as the boundary.
+- For an elastic structure, they follow its deformation. The offset `-2 * normals` is a
+  material line element, so it is mapped to the current configuration by the deformation
+  gradient ``\bm{F}`` of the structure particle, which reduces to the rigid reflection
+  for a rigid rotation.
 
 If the local MLS moment matrix is singular, the method falls back to zeroth-order
 Shepard interpolation. This calculator requires a neighborhood search that supports
@@ -327,8 +335,9 @@ function create_cache_model(initial_density::AbstractVector,
 
     return (; density=copy(initial_density),
             volume=zeros(ELTYPE, n_particles),
+            # Normals in the reference configuration, copied from the initial condition
+            normals=zeros(ELTYPE, NDIMS, n_particles),
             interpolation_coordinates=zeros(ELTYPE, NDIMS, n_particles),
-            initial_interpolation_coordinates=zeros(ELTYPE, NDIMS, n_particles),
             moment_matrix=zeros(ELTYPE, n_basis, n_basis, n_particles),
             pressure_rhs=zeros(ELTYPE, n_basis, n_particles),
             velocity_rhs=zeros(ELTYPE, n_basis, NDIMS, n_particles))

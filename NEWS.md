@@ -6,6 +6,17 @@ used in the Julia ecosystem. Notable changes will be documented in this file for
 
 ## Version 0.5.4
 
+### Features
+
+- Added `MarronePressureExtrapolation`, a boundary density calculator for
+  `BoundaryModelDummyParticles` implementing the fixed ghost particle boundary condition
+  by Marrone et al. It can be used with `WallBoundarySystem`, including walls with a
+  `PrescribedMotion`, and with `TotalLagrangianSPHSystem`, where the interpolation points
+  follow the deformation of the elastic structure.
+- Added the keyword argument `compute_normals` to `RectangularShape`, which stores the
+  distance vectors from the surface of the rectangle to each particle. These are required
+  to use a rectangular obstacle with `MarronePressureExtrapolation`.
+
 ### API Changes
 
 - Replaced the experimental `MechanicalWorkCalculatorCallback` with
