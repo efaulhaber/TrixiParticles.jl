@@ -127,6 +127,13 @@ function update_systems_and_nhs(v_ode, u_ode, semi, t)
     foreach_system_wrapped(semi, v_ode, u_ode) do system, v, u
         update_final!(system, v, u, v_ode, u_ode, semi, t)
     end
+
+    # The shifting velocity of boundary particles is interpolated from the shifting
+    # velocity of the fluid, which is computed in `update_final!`.
+    # This therefore has to be done after `update_final!`.
+    foreach_system_wrapped(semi, v_ode, u_ode) do system, v, u
+        update_boundary_shifting!(system, v, u, v_ode, u_ode, semi, t)
+    end
 end
 
 # Some systems accumulate pairwise interaction state outside `dv_ode`. Reset that state once

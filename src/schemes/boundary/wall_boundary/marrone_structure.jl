@@ -33,3 +33,19 @@ function update_interpolation_coordinates!(model::BoundaryModelDummyParticles{Ma
 
     return model
 end
+
+# See the comments on `delta_v_boundary` in `marrone.jl`.
+# For a deformed structure, the normal direction is obtained from the current position of
+# the interpolation point, which is deformed along with the body (see above).
+@propagate_inbounds function delta_v(system::Union{TotalLagrangianSPHSystem,
+                                                   RigidBodySystem}, particle)
+    return delta_v_boundary(system.boundary_model, system, particle)
+end
+
+function update_boundary_shifting!(system::Union{TotalLagrangianSPHSystem,
+                                                 RigidBodySystem}, v, u, v_ode, u_ode,
+                                   semi, t)
+    update_marrone_shifting!(system.boundary_model, system, v, u, v_ode, u_ode, semi)
+
+    return system
+end

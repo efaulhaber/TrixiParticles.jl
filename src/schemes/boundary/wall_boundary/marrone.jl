@@ -234,3 +234,178 @@ function finalize_marrone!(model, system, v, particle)
 
     return model
 end
+
+# Shifting velocity of the boundary particles.
+#
+# Boundary particles are never shifted, but the shifting terms in the momentum and
+# continuity equations require a shifting velocity for the boundary particles.
+# Consistent with the Marrone boundary condition, the shifting velocity of the fluid is
+# interpolated at the interpolation point (the boundary particle mirrored across the wall
+# surface) and then mirrored across the wall surface as well, i.e., the normal component
+# is flipped and the tangential components are kept.
+# For a wall at `x = 0` with a fluid shifting velocity `(δu₁, δu₂)` at the interpolation
+# point, this yields `(-δu₁, δu₂)` at the boundary particle.
+@inline function delta_v_boundary(boundary_model, system, particle)
+    return zero(SVector{ndims(system), eltype(system)})
+end
+
+@propagate_inbounds function delta_v_boundary(boundary_model::BoundaryModelDummyParticles{MarronePressureExtrapolation},
+                                              system, particle)
+    return extract_svector(boundary_model.cache.delta_v, system, particle)
+end
+
+@propagate_inbounds function delta_v(system::WallBoundarySystem, particle)
+    return delta_v_boundary(system.boundary_model, system, particle)
+end
+
+function update_boundary_shifting!(system::WallBoundarySystem, v, u, v_ode, u_ode, semi, t)
+    update_marrone_shifting!(system.boundary_model, system, v, u, v_ode, u_ode, semi)
+
+    return system
+end
+
+function update_marrone_shifting!(model, system, v, u, v_ode, u_ode, semi)
+    return model
+end
+
+function update_marrone_shifting!(model::BoundaryModelDummyParticles{MarronePressureExtrapolation},
+                                  system, v, u, v_ode, u_ode, semi)
+    (; cache) = model
+
+    # Nothing to do when no fluid system uses a shifting technique
+    has_shifting_neighbor(system, semi) || return model
+
+    set_zero!(cache.delta_v)
+    set_zero!(cache.delta_v_rhs)
+
+    system_coordinates = current_coordinates(u, system)
+
+    @trixi_timeit timer() "compute boundary shifting velocity" begin
+        foreach_system(semi) do neighbor_system
+            has_system_interaction(system, neighbor_system, semi) || return
+            neighbor_system isa AbstractFluidSystem || return
+
+            v_neighbor_system = wrap_v(v_ode, neighbor_system, semi)
+            u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
+            neighbor_coordinates = current_coordinates(u_neighbor_system, neighbor_system)
+
+            accumulate_marrone_shifting!(model, system, neighbor_system,
+                                         neighbor_coordinates, v_neighbor_system, semi)
+        end
+
+        @threaded semi for particle in eachparticle(system)
+            @inbounds finalize_marrone_shifting!(model, system, system_coordinates,
+                                                 particle)
+        end
+    end
+
+    return model
+end
+
+# Whether any fluid system interacting with `system` uses a shifting technique.
+# If not, the interpolated shifting velocity is zero anyway and the whole pass is skipped.
+function has_shifting_neighbor(system, semi)
+    result = Ref(false)
+
+    foreach_system(semi) do neighbor_system
+        has_system_interaction(system, neighbor_system, semi) || return
+        neighbor_system isa AbstractFluidSystem || return
+
+        if !isnothing(shifting_technique(neighbor_system))
+            result[] = true
+        end
+    end
+
+    return result[]
+end
+
+function accumulate_marrone_shifting!(model, system, neighbor_system,
+                                      neighbor_coordinates, v_neighbor_system, semi)
+    interpolation_coordinates = model.cache.interpolation_coordinates
+
+    foreach_point_neighbor(system, neighbor_system, interpolation_coordinates,
+                           neighbor_coordinates, semi;
+                           points=eachparticle(system)) do particle, neighbor,
+                                                           pos_diff, distance
+        @inbounds accumulate_marrone_shifting_pair!(model, system, neighbor_system,
+                                                    v_neighbor_system, particle, neighbor,
+                                                    pos_diff, distance)
+    end
+
+    return model
+end
+
+@propagate_inbounds function accumulate_marrone_shifting_pair!(model, system,
+                                                               neighbor_system,
+                                                               v_neighbor_system, particle,
+                                                               neighbor, pos_diff, distance)
+    (; cache, smoothing_length) = model
+    NDIMS = ndims(system)
+
+    # Same basis and weights as in `accumulate_marrone_pair!`, so that the moment matrix
+    # computed in `compute_pressure!` can be reused here.
+    basis = SVector{NDIMS + 1}(ntuple(i -> i == 1 ? one(distance) :
+                                           -pos_diff[i - 1] / smoothing_length,
+                                      NDIMS + 1))
+    density = current_density(v_neighbor_system, neighbor_system, neighbor)
+    iszero(density) && return model
+
+    volume = hydrodynamic_mass(neighbor_system, neighbor) / density
+    weight = smoothing_kernel(model, distance, particle) * volume
+
+    delta_v_neighbor = delta_v(neighbor_system, neighbor)
+
+    for i in 1:(NDIMS + 1)
+        for dimension in 1:NDIMS
+            cache.delta_v_rhs[i, dimension, particle] += weight * basis[i] *
+                                                         delta_v_neighbor[dimension]
+        end
+    end
+
+    return model
+end
+
+@propagate_inbounds function finalize_marrone_shifting!(model, system, system_coordinates,
+                                                        particle)
+    (; cache) = model
+    NDIMS = ndims(system)
+    N = NDIMS + 1
+    ELTYPE = eltype(cache.density)
+
+    # The moment matrix is the same as for the pressure interpolation and has already
+    # been computed in `compute_pressure!`.
+    moment = SMatrix{N, N, ELTYPE}(ntuple(i -> cache.moment_matrix[mod1(i, N), cld(i, N),
+                                                                   particle], N * N))
+    coefficients = marrone_mls_coefficients(moment)
+
+    delta_v_rhs = SMatrix{N, NDIMS, ELTYPE}(ntuple(i -> cache.delta_v_rhs[mod1(i, N),
+                                                                          cld(i, N),
+                                                                          particle],
+                                                   N * NDIMS))
+    interpolated_delta_v = transpose(delta_v_rhs) * coefficients
+
+    # Unit normal of the wall surface in the current configuration.
+    # The interpolation point is the boundary particle mirrored across the wall surface,
+    # so the vector from the interpolation point to the boundary particle is normal
+    # to the wall surface.
+    boundary_position = extract_svector(system_coordinates, system, particle)
+    interpolation_position = extract_svector(cache.interpolation_coordinates, system,
+                                             particle)
+    normal_direction = boundary_position - interpolation_position
+    distance = norm(normal_direction)
+
+    # Mirror the interpolated shifting velocity across the wall surface,
+    # i.e., flip the normal component and keep the tangential components
+    mirrored_delta_v = if distance > eps(ELTYPE)
+        normal = normal_direction / distance
+        interpolated_delta_v - 2 * dot(interpolated_delta_v, normal) * normal
+    else
+        interpolated_delta_v
+    end
+
+    for dimension in 1:NDIMS
+        cache.delta_v[dimension, particle] = mirrored_delta_v[dimension]
+    end
+
+    return model
+end

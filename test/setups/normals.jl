@@ -46,8 +46,9 @@
         sphere = SphereShape(particle_spacing, radius, center, density)
         (; normals) = sphere
 
-        normals_reference = [[-0.207107 0.0 0.207107 -0.5 0.0 0.5 -0.207107 0.0 0.207107]
-                             [-0.207107 -0.5 -0.207107 0.0 0.0 0.0 0.207107 0.5 0.207107]]
+        # The normals point from the closest point on the surface into the sphere
+        normals_reference = -[[-0.207107 0.0 0.207107 -0.5 0.0 0.5 -0.207107 0.0 0.207107]
+                              [-0.207107 -0.5 -0.207107 0.0 0.0 0.0 0.207107 0.5 0.207107]]
 
         @test all(isapprox.(sphere.normals, normals_reference, atol=1e-6))
     end
@@ -60,9 +61,10 @@
         sphere = SphereShape(particle_spacing, radius, center, density)
 
         (; normals) = sphere
-        normals_reference = [[0.0 -0.207107 0.0 0.207107 0.0 -0.207107 0.0 0.207107 -0.5 0.0 0.5 -0.207107 0.0 0.207107 0.0 -0.207107 0.0 0.207107 0.0]
-                             [-0.207107 0.0 0.0 0.0 0.207107 -0.207107 -0.5 -0.207107 0.0 0.0 0.0 0.207107 0.5 0.207107 -0.207107 0.0 0.0 0.0 0.207107]
-                             [-0.207107 -0.207107 -0.5 -0.207107 -0.207107 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.207107 0.207107 0.5 0.207107 0.207107]]
+        # The normals point from the closest point on the surface into the sphere
+        normals_reference = -[[0.0 -0.207107 0.0 0.207107 0.0 -0.207107 0.0 0.207107 -0.5 0.0 0.5 -0.207107 0.0 0.207107 0.0 -0.207107 0.0 0.207107 0.0]
+                              [-0.207107 0.0 0.0 0.0 0.207107 -0.207107 -0.5 -0.207107 0.0 0.0 0.0 0.207107 0.5 0.207107 -0.207107 0.0 0.0 0.0 0.207107]
+                              [-0.207107 -0.207107 -0.5 -0.207107 -0.207107 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.207107 0.207107 0.5 0.207107 0.207107]]
         @test all(isapprox.(sphere.normals, normals_reference, atol=1e-6))
     end
 

@@ -340,7 +340,11 @@ function create_cache_model(initial_density::AbstractVector,
             interpolation_coordinates=zeros(ELTYPE, NDIMS, n_particles),
             moment_matrix=zeros(ELTYPE, n_basis, n_basis, n_particles),
             pressure_rhs=zeros(ELTYPE, n_basis, n_particles),
-            velocity_rhs=zeros(ELTYPE, n_basis, NDIMS, n_particles))
+            velocity_rhs=zeros(ELTYPE, n_basis, NDIMS, n_particles),
+            # Shifting velocity of the boundary particles, interpolated from the fluid
+            # and mirrored across the wall surface (see `update_marrone_shifting!`)
+            delta_v=zeros(ELTYPE, NDIMS, n_particles),
+            delta_v_rhs=zeros(ELTYPE, n_basis, NDIMS, n_particles))
 end
 
 @inline create_cache_model(viscosity::Nothing, n_particles, n_dims) = (;)

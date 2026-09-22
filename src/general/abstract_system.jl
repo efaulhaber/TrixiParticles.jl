@@ -183,6 +183,12 @@ function update_final!(system, v, u, v_ode, u_ode, semi, t; kwargs...)
     return system
 end
 
+# This update depends on the shifting velocity of the fluid systems, which is computed
+# in `update_final!`, and therefore has to be called after `update_final!`.
+function update_boundary_shifting!(system, v, u, v_ode, u_ode, semi, t)
+    return system
+end
+
 function reset_interaction_caches!(system)
     return system
 end

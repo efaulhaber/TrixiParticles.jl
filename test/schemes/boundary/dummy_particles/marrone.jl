@@ -16,11 +16,18 @@
     #
     # The fluid has a gravity-like acceleration of `-2` in the first coordinate
     # direction, which activates the hydrostatic correction term of the method.
+    #
+    # With `boundary_normal`, the wall surface can be tilted. The interpolation point
+    # stays at `e_1`, but the boundary particle is moved to `interpolation_point +
+    # 2 * boundary_normal`, so that it is still mirrored across the wall surface.
     function marrone_test_setup(D; viscosity=nothing, state_equation=nothing,
-                                clip_negative_pressure=false, prescribed_motion=nothing)
+                                clip_negative_pressure=false, prescribed_motion=nothing,
+                                shifting_technique=nothing, boundary_normal=nothing)
         interpolation_point = zeros(D, 1)
         interpolation_point[1] = 1
-        boundary_coordinates = -interpolation_point
+        normals = isnothing(boundary_normal) ? -interpolation_point :
+                  reshape(collect(boundary_normal), D, 1)
+        boundary_coordinates = interpolation_point + 2 * normals
 
         # Fluid particles on a 3^D grid centered around the interpolation point `e_1`,
         # all within the compact support of 2 * 0.4 = 0.8 around the interpolation point.
@@ -46,14 +53,12 @@
         fluid_system = WeaklyCompressibleSPHSystem(fluid; smoothing_kernel,
                                                    smoothing_length=0.4,
                                                    density_calculator=ContinuityDensity(),
-                                                   state_equation,
+                                                   state_equation, shifting_technique,
                                                    acceleration=ntuple(i -> i == 1 ? -2.0 :
                                                                             0.0, D))
 
         boundary = InitialCondition(; coordinates=boundary_coordinates, density=1000.0,
-                                    particle_spacing=0.1,
-                                    normals=(boundary_coordinates - interpolation_point) /
-                                            2)
+                                    particle_spacing=0.1, normals)
         model = BoundaryModelDummyParticles(boundary.density, boundary.mass,
                                             MarronePressureExtrapolation(),
                                             smoothing_kernel, 0.4; viscosity,
@@ -205,6 +210,128 @@
             # The interpolation point at `(1, 0)` moves to `(0, 1)`
             @test isapprox(setup.model.cache.interpolation_coordinates[:, 1], [0.0, 1.0],
                            atol=1.0e-14)
+        end
+    end
+
+    # Boundary particles are never shifted, but the shifting terms in the momentum and
+    # continuity equations require a shifting velocity for the boundary particles.
+    # This shifting velocity is interpolated at the interpolation point and then mirrored
+    # across the wall surface, i.e., the normal component is flipped and the tangential
+    # components are kept.
+    @testset verbose=true "Shifting Velocity" begin
+        state_equation = StateEquationCole(sound_speed=20.0, reference_density=1000.0,
+                                           exponent=1, clip_negative_pressure=false)
+
+        # Shifting velocity field that is linear in space, so that first-order MLS
+        # interpolation must reproduce it exactly at the interpolation point
+        function linear_shifting_velocity(coords)
+            return SVector(ntuple(dimension -> dimension + 2 * coords[1] -
+                                               0.5 * coords[length(coords)],
+                                  length(coords)))
+        end
+
+        function set_shifting_velocity!(fluid_system, fluid_coordinates)
+            for particle in axes(fluid_coordinates, 2)
+                coords = TrixiParticles.extract_svector(fluid_coordinates, fluid_system,
+                                                        particle)
+                delta_v = linear_shifting_velocity(coords)
+
+                fluid_system.cache.delta_v[:, particle] .= delta_v
+            end
+
+            return fluid_system
+        end
+
+        # Mirror the shifting velocity at the interpolation point across a wall with the
+        # unit normal `normal`
+        function mirror(delta_v, normal)
+            return delta_v - 2 * dot(delta_v, normal) * normal
+        end
+
+        # For the default setup, the wall normal is `-e_1`, so only the first component
+        # of the shifting velocity is flipped
+        @testset "$D Dimensions" for D in (2, 3)
+            shifting_technique = ParticleShiftingTechnique(modify_continuity_equation=false,
+                                                           second_continuity_equation_term=nothing)
+            setup = marrone_test_setup(D; shifting_technique, state_equation)
+            (; fluid_system, wall, model, fluid_coordinates, interpolation_point) = setup
+
+            set_shifting_velocity!(fluid_system, fluid_coordinates)
+
+            semi = Semidiscretization(fluid_system, wall)
+            ode = semidiscretize(semi, (0.0, 0.01))
+            v_ode, u_ode = ode.u0.x
+            v = TrixiParticles.wrap_v(v_ode, wall, semi)
+            u = TrixiParticles.wrap_u(u_ode, wall, semi)
+
+            # The moment matrix is computed in `update_pressure!` and reused for the
+            # interpolation of the shifting velocity
+            TrixiParticles.update_pressure!(model, wall, v, u, v_ode, u_ode, semi)
+
+            interpolated = linear_shifting_velocity(SVector{D}(interpolation_point))
+            expected = mirror(interpolated, SVector{D}(ntuple(i -> i == 1 ? -1.0 : 0.0, D)))
+
+            # Update twice to verify that the accumulators are reset in each update
+            for _ in 1:2
+                TrixiParticles.update_marrone_shifting!(model, wall, v, u, v_ode, u_ode,
+                                                        semi)
+
+                @test isapprox(model.cache.delta_v[:, 1], expected)
+                @test isapprox(TrixiParticles.delta_v(wall, 1), expected)
+            end
+        end
+
+        # The normal component that is flipped is the normal of the wall surface,
+        # which is not necessarily aligned with a coordinate direction
+        @testset "Tilted Wall Surface" begin
+            normal = SVector(-0.6, 0.8)
+            shifting_technique = ParticleShiftingTechnique(modify_continuity_equation=false,
+                                                           second_continuity_equation_term=nothing)
+            setup = marrone_test_setup(2; shifting_technique, state_equation,
+                                       boundary_normal=normal)
+            (; fluid_system, wall, model, fluid_coordinates, interpolation_point) = setup
+
+            set_shifting_velocity!(fluid_system, fluid_coordinates)
+
+            semi = Semidiscretization(fluid_system, wall)
+            ode = semidiscretize(semi, (0.0, 0.01))
+            v_ode, u_ode = ode.u0.x
+            v = TrixiParticles.wrap_v(v_ode, wall, semi)
+            u = TrixiParticles.wrap_u(u_ode, wall, semi)
+
+            TrixiParticles.update_pressure!(model, wall, v, u, v_ode, u_ode, semi)
+            TrixiParticles.update_marrone_shifting!(model, wall, v, u, v_ode, u_ode, semi)
+
+            interpolated = linear_shifting_velocity(SVector{2}(interpolation_point))
+            expected = mirror(interpolated, normal)
+
+            @test isapprox(model.cache.delta_v[:, 1], expected)
+
+            # The tangential component is preserved and the normal component is flipped
+            tangential = SVector(normal[2], -normal[1])
+            @test isapprox(dot(model.cache.delta_v[:, 1], tangential),
+                           dot(interpolated, tangential))
+            @test isapprox(dot(model.cache.delta_v[:, 1], normal),
+                           -dot(interpolated, normal))
+        end
+
+        # Without a shifting technique in the fluid system, the shifting velocity of the
+        # boundary particles must be zero
+        @testset "No Shifting Technique" begin
+            setup = marrone_test_setup(2; state_equation)
+            (; fluid_system, wall, model) = setup
+
+            semi = Semidiscretization(fluid_system, wall)
+            ode = semidiscretize(semi, (0.0, 0.01))
+            v_ode, u_ode = ode.u0.x
+            v = TrixiParticles.wrap_v(v_ode, wall, semi)
+            u = TrixiParticles.wrap_u(u_ode, wall, semi)
+
+            TrixiParticles.update_pressure!(model, wall, v, u, v_ode, u_ode, semi)
+            TrixiParticles.update_marrone_shifting!(model, wall, v, u, v_ode, u_ode, semi)
+
+            @test all(iszero, model.cache.delta_v)
+            @test iszero(TrixiParticles.delta_v(wall, 1))
         end
     end
 
