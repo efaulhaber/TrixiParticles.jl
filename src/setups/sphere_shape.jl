@@ -435,7 +435,11 @@ function round_sphere(sphere, particle_spacing, radius, center::SVector{3})
     return particle_coords
 end
 
-# Compute the normals by projecting each point on the surface of the sphere
+# Compute the normals by projecting each point on the surface of the sphere.
+# Each normal is the distance vector from the closest point on the surface to the particle,
+# so it points from the surface into the sphere. This is the convention required by
+# `MarronePressureExtrapolation`: mirroring a particle as `coordinates - 2 * normals`
+# moves it out of the shape.
 function calculate_sphere_normals(coordinates::Matrix{T}, center_position,
                                   radius, ::Val{NDIMS}) where {T, NDIMS}
     n_points = size(coordinates, 2)
@@ -448,7 +452,7 @@ function calculate_sphere_normals(coordinates::Matrix{T}, center_position,
         dist = norm(diff)
 
         if dist > threshold
-            normals[:, i] .= diff / dist * (radius - dist)
+            normals[:, i] .= diff / dist * (dist - radius)
         end
     end
 
