@@ -156,8 +156,12 @@ function create_cache_open_boundary(boundary_model, fluid_system, initial_condit
     density_reference_values = map(ref -> ref.reference_density, reference_values)
     velocity_reference_values = map(ref -> ref.reference_velocity, reference_values)
 
+    # Flags particles that entered a boundary zone from the fluid domain, so that
+    # they are not recycled when they exit the zone again (see `convert_particle!`).
+    entered_from_fluid = fill(false, nparticles(initial_condition))
+
     cache = (; pressure_reference_values, density_reference_values,
-             velocity_reference_values)
+             velocity_reference_values, entered_from_fluid)
 
     if calculate_flow_rate ||
        any(pr -> isa(pr, RCRWindkesselModel), cache.pressure_reference_values)
@@ -489,6 +493,7 @@ end
     # to determine if it exited the boundary zone through the free surface (outflow).
     if dot(relative_position, boundary_zone.face_normal) < 0
         # Particle is outside the fluid domain
+        system.cache.entered_from_fluid[particle] = false
         deactivate_particle!(system, particle, v, u)
 
         return system
@@ -497,6 +502,17 @@ end
     # Activate a new particle in simulation domain
     transfer_particle!(fluid_system, system, particle, particle_new,
                        v_fluid, u_fluid, v, u, periodic_box)
+
+    if system.cache.entered_from_fluid[particle]
+        # This particle entered the zone from the fluid domain and has now returned to
+        # it, so the zone did not lose a particle and must not be repopulated.
+        # Resetting it would place it on top of the particle that is already at the
+        # upstream end of the zone.
+        system.cache.entered_from_fluid[particle] = false
+        deactivate_particle!(system, particle, v, u)
+
+        return system
+    end
 
     # Reset position of boundary particle back to the beginning of the boundary zone.
     # If we translated it by exactly `zone_width` along `-face_normal`, rounding
@@ -531,6 +547,12 @@ end
     # Activate particle in boundary zone
     transfer_particle!(system, fluid_system, particle, particle_new,
                        v, u, v_fluid, u_fluid, periodic_box)
+
+    # Remember that this particle came from the fluid domain. A boundary zone holds a
+    # fixed number of particles, which is maintained by recycling particles that cross
+    # the transition face. This particle was added on top of that number, so it must
+    # not be recycled when it returns to the fluid domain.
+    system.cache.entered_from_fluid[particle_new] = true
 
     # Deactivate particle in interior domain
     deactivate_particle!(fluid_system, particle, v_fluid, u_fluid)
